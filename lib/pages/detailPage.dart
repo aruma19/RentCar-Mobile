@@ -35,10 +35,9 @@ class _DetailPageState extends State<DetailPage> {
 
   Future<void> _fetchCarDetail() async {
     try {
-      final response = await http.get(
-        Uri.parse('https://6839447d6561b8d882af9534.mockapi.io/api/sewa_mobil/mobil/${widget.carId}')
-      );
-      
+      final response = await http.get(Uri.parse(
+          'https://6839447d6561b8d882af9534.mockapi.io/api/sewa_mobil/mobil/${widget.carId}'));
+
       if (response.statusCode == 200) {
         final Map<String, dynamic> json = jsonDecode(response.body);
         setState(() {
@@ -76,7 +75,7 @@ class _DetailPageState extends State<DetailPage> {
 
   Future<void> _toggleFavorite() async {
     if (car == null) return;
-    
+
     try {
       final prefs = await SharedPreferences.getInstance();
       final username = prefs.getString('username');
@@ -133,7 +132,8 @@ class _DetailPageState extends State<DetailPage> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text("Detail Mobil", style: TextStyle(color: Colors.white)),
+        title:
+            const Text("Detail Mobil", style: TextStyle(color: Colors.white)),
         backgroundColor: Colors.teal[800],
         centerTitle: true,
         iconTheme: const IconThemeData(color: Colors.white),
@@ -205,10 +205,9 @@ class _DetailPageState extends State<DetailPage> {
             Text(
               "Deskripsi:",
               style: TextStyle(
-                fontSize: 18, 
-                fontWeight: FontWeight.bold,
-                color: Colors.teal[800]
-              ),
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.teal[800]),
             ),
             const SizedBox(height: 8),
             Container(
@@ -238,10 +237,9 @@ class _DetailPageState extends State<DetailPage> {
           child: Text(
             car!.nama,
             style: TextStyle(
-              fontSize: 26, 
-              fontWeight: FontWeight.bold, 
-              color: Colors.teal[800]
-            ),
+                fontSize: 26,
+                fontWeight: FontWeight.bold,
+                color: Colors.teal[800]),
           ),
         ),
         Container(
@@ -336,7 +334,8 @@ class _DetailPageState extends State<DetailPage> {
             child: Center(
               child: CircularProgressIndicator(
                 value: progress.expectedTotalBytes != null
-                    ? progress.cumulativeBytesLoaded / progress.expectedTotalBytes!
+                    ? progress.cumulativeBytesLoaded /
+                        progress.expectedTotalBytes!
                     : null,
                 color: Colors.teal[800],
               ),
@@ -372,12 +371,9 @@ class _DetailPageState extends State<DetailPage> {
       ),
       child: ElevatedButton(
         onPressed: () {
-          // Implementasi booking
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('Fitur booking akan segera tersedia!'),
-              backgroundColor: Colors.teal[800],
-            ),
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => BookListPage(car: car!)),
           );
         },
         style: ElevatedButton.styleFrom(
