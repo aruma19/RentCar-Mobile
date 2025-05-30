@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:project_133_165/pages/Dashboard.dart';
-import 'package:project_133_165/pages/Register.dart';
+import 'Dashboard.dart';
+import 'Register.dart';
 import 'package:hive/hive.dart';
-import 'package:project_133_165/pages/helpPage.dart';
-import 'package:project_133_165/pages/teamMember.dart';
+import 'helpPage.dart';
+import 'Favorite.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginPage extends StatefulWidget {

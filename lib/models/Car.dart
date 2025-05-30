@@ -1,39 +1,31 @@
 class Car {
   final String id;
-  final String name;
-  final String brand;
-  final String category;
-  final double dailyRate;
-  final String description;
-  final String price;
-  final String plate;
-  final List<String> images;
+  final String nama;
+  final String merk;
+  final String plat;
+  final int year; // ganti dari 'tahun' jadi 'year'
+  final String deskripsi;
+  final String image;
 
   Car({
     required this.id,
-    required this.name,
-    required this.brand,
-    required this.category,
-    required this.dailyRate,
-    required this.description,
-    required this.price,
-    required this.plate,
-    required this.images,
+    required this.nama,
+    required this.merk,
+    required this.plat,
+    required this.year,
+    required this.deskripsi,
+    required this.image,
   });
 
   factory Car.fromJson(Map<String, dynamic> json) {
     return Car(
       id: json['id'],
-      name: json['name'],
-      brand: json['brand'],
-      category: json['category'],
-      dailyRate: json['daily_rate'].toDouble(),
-      description: json['description'],
-      price: json['price'],
-      plate: json['plate'],
-      images: List<String>.from(json['images']),
+      nama: json['nama'],
+      merk: json['merk'],
+      plat: json['plat'],
+      year: int.parse(json['year']), // ← ubah dari String ke int
+      deskripsi: json['deskripsi'],
+      image: json['image'], // karena di API hanya 1 string URL
     );
   }
-
-  String? get imageUrl => null;
 }

@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 import '../pages/Dashboard.dart';
 import '../pages/historyBook.dart';
-import '../pages/teamMember.dart';
+import '../pages/Favorite.dart';
 import '../pages/bookList.dart';
 import '../pages/helpPage.dart';
 
@@ -61,7 +61,7 @@ class _BottomNavBarState extends State<BottomNavBar> with SingleTickerProviderSt
           ),
           child: Row(
             children: [
-              _buildNavItem(0, Icons.group, 'Team'),
+              _buildNavItem(0, Icons.favorite, 'Favorite'),
               _buildNavItem(1, Icons.history, 'History'),
               _buildNavItem(2, Icons.home, 'Home'),
               _buildNavItem(3, Icons.library_add_check_outlined, 'Booking'),

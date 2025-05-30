@@ -1,13 +1,14 @@
+// (Import tidak berubah)
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:project_133_165/pages/bookList.dart';
-import 'package:project_133_165/pages/helpPage.dart';
-import 'package:project_133_165/pages/historyBook.dart';
-import 'package:project_133_165/pages/teamMember.dart';
+import 'bookList.dart';
+import 'helpPage.dart';
+import 'historyBook.dart';
+import 'Favorite.dart';
 import 'package:project_133_165/widgets/bottom_nav_bar.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../models/Car.dart'; // import sesuai struktur folder
+import '../models/Car.dart';
 import 'Login.dart';
 import 'detailPage.dart';
 
@@ -19,18 +20,16 @@ class Dashboard extends StatefulWidget {
 }
 
 class _DashboardState extends State<Dashboard> {
-  int _selectedIndex = 2; // Menyimpan index halaman yang sedang aktif
+  int _selectedIndex = 2;
 
-  // Daftar halaman yang akan ditampilkan berdasarkan bottom navigation
   final List<Widget> _pages = [
-    MemberListScreen(), //Halaman Anggota Kelompok
-    HistoryBookPage(), //Halaman History Book
-    const SizedBox(),// Halaman home dengan daftar menu
-    BookListPage(), // Halaman daftar anggota tim
-    HelpPage(), // Halaman bantuan
+    FavoritesPage(),
+    HistoryBookPage(),
+    const SizedBox(),
+    BookListPage(),
+    HelpPage(),
   ];
 
-  /// Mengubah tampilan halaman sesuai index yang diklik
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
@@ -57,9 +56,10 @@ class _DashboardState extends State<Dashboard> {
   }
 
   Future<List<Car>> _fetchCars() async {
-    final response = await http.get(Uri.parse('https://example.com/api/cars'));
+    final response = await http.get(Uri.parse(
+        'https://6839447d6561b8d882af9534.mockapi.io/api/sewa_mobil/mobil'));
     if (response.statusCode == 200) {
-      final List<dynamic> list = json.decode(response.body)['cars'];
+      final List<dynamic> list = json.decode(response.body);
       return list.map((e) => Car.fromJson(e)).toList();
     } else {
       throw Exception('Gagal memuat data mobil');
@@ -75,10 +75,10 @@ class _DashboardState extends State<Dashboard> {
       return;
     }
 
-    final response =
-        await http.get(Uri.parse('https://example.com/api/cars?search=$query'));
+    final response = await http.get(Uri.parse(
+        'https://6839447d6561b8d882af9534.mockapi.io/api/sewa_mobil/mobil?search=$query'));
     if (response.statusCode == 200) {
-      final List<dynamic> list = json.decode(response.body)['cars'];
+      final List<dynamic> list = json.decode(response.body);
       setState(() {
         filteredCars = list.map((e) => Car.fromJson(e)).toList();
         isSearching = true;
@@ -134,7 +134,7 @@ class _DashboardState extends State<Dashboard> {
                   child: TextField(
                     controller: _searchController,
                     decoration: InputDecoration(
-                      hintText: 'Cari kategori (contoh: sedan)',
+                      hintText: 'Cari merk (contoh: Toyota)',
                       suffixIcon: IconButton(
                         icon: const Icon(Icons.search),
                         onPressed: () => _searchCars(_searchController.text),
@@ -170,7 +170,7 @@ class _DashboardState extends State<Dashboard> {
                 ),
               ],
             )
-          : _pages[_selectedIndex], // halaman lain selain dashboard (index 0)
+          : _pages[_selectedIndex],
       bottomNavigationBar: BottomNavBar(
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
@@ -185,10 +185,8 @@ class _DashboardState extends State<Dashboard> {
         onTap: () => Navigator.push(
             context,
             MaterialPageRoute(
-                builder: (_) => DetailPage(
-                      carId: car.id,
-                      carData: {},
-                    ))),
+              builder: (_) => DetailPage(carId: car.id),
+            )),
         child: Card(
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -199,7 +197,7 @@ class _DashboardState extends State<Dashboard> {
                 borderRadius:
                     const BorderRadius.vertical(top: Radius.circular(12)),
                 child: Image.network(
-                  car.images as String,
+                  car.image,
                   height: 160,
                   width: double.infinity,
                   fit: BoxFit.cover,
@@ -210,18 +208,21 @@ class _DashboardState extends State<Dashboard> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(car.name,
+                    Text(car.nama,
                         style: const TextStyle(
                             fontSize: 18, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 6),
-                    Text("Plat Nomor: ${car.plate}"),
-                    Text("Harga: ${car.price}"),
-                    Text("Kategori: ${car.category}",
-                        style: const TextStyle(color: Colors.grey)),
+                    Text("Merk: ${car.merk}"),
+                    Text("Plat: ${car.plat}"),
+                    Text("Tahun: ${car.year}"),
+                    const SizedBox(height: 8),
+                    Text(car.deskripsi,
+                        maxLines: 2, overflow: TextOverflow.ellipsis),
                     const SizedBox(height: 8),
                     const Align(
-                        alignment: Alignment.centerRight,
-                        child: Icon(Icons.arrow_forward_ios, size: 16))
+                      alignment: Alignment.centerRight,
+                      child: Icon(Icons.arrow_forward_ios, size: 16),
+                    )
                   ],
                 ),
               ),
