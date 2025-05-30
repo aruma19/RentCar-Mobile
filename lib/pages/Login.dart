@@ -4,6 +4,7 @@ import 'Register.dart';
 import 'package:hive/hive.dart';
 import 'helpPage.dart';
 import 'Favorite.dart';
+import 'WelcomePage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginPage extends StatefulWidget {
@@ -88,6 +89,20 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+    backgroundColor: Colors.transparent,
+    elevation: 0,
+    leading: IconButton(
+      icon: const Icon(Icons.arrow_back, color: Colors.white),
+      onPressed: () {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const WelcomePage()),
+        );
+      },
+    ),
+  ),
+  extendBodyBehindAppBar: true,
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(

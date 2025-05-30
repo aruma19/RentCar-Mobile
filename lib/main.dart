@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:project_133_165/pages/Login.dart';
+import 'package:project_133_165/pages/WelcomePage.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,7 +17,7 @@ class MainApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const MaterialApp(
-      home: LoginPage(),
+      home: WelcomePage(),
       debugShowCheckedModeBanner: false,
     );
   }
