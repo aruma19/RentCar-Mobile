@@ -1,7 +1,6 @@
 // (Import tidak berubah)
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:project_133_165/pages/WelcomePage.dart';
 import 'bookList.dart';
 import 'helpPage.dart';
 import 'historyBook.dart';
@@ -109,7 +108,7 @@ class _DashboardState extends State<Dashboard> {
     if (confirm == true) {
       await logindata.clear();
       Navigator.pushReplacement(
-          context, MaterialPageRoute(builder: (_) => const WelcomePage()));
+          context, MaterialPageRoute(builder: (_) => const LoginPage()));
     }
   }
 
