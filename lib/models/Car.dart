@@ -27,11 +27,17 @@ class Car {
       nama: json['nama'],
       merk: json['merk'],
       plat: json['plat'],
-      harga: int.parse(json['harga']), // ← ubah dari String ke int
-      kapasitas_penumpang: int.parse(json['kapasitas_penumpang']), // ← ubah dari String ke int
-      year: int.parse(json['year']), // ← ubah dari String ke int
+      harga: json['harga'] is int
+          ? json['harga']
+          : int.tryParse(json['harga'].toString()) ?? 0,
+      kapasitas_penumpang: json['kapasitas_penumpang'] is int
+          ? json['kapasitas_penumpang']
+          : int.tryParse(json['kapasitas_penumpang'].toString()) ?? 0,
+      year: json['year'] is int
+          ? json['year']
+          : int.tryParse(json['year'].toString()) ?? 0,
       deskripsi: json['deskripsi'],
-      image: json['image'], // karena di API hanya 1 string URL
+      image: json['image'],
     );
   }
 }

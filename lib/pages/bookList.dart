@@ -5,8 +5,9 @@ import '../models/Car.dart';
 
 class BookListPage extends StatefulWidget {
   final String carId;
+  final Car? car;
 
-  const BookListPage({super.key, required this.carId, required Car car});
+  const BookListPage({super.key, required this.carId, this.car});
 
   @override
   State<BookListPage> createState() => _BookListPageState();
@@ -16,13 +17,13 @@ class _BookListPageState extends State<BookListPage> {
   Car? car;
   bool isLoading = true;
   String? errorMessage;
-  
+
   // Form controllers
   final _formKey = GlobalKey<FormState>();
   final _daysController = TextEditingController();
   final _nameController = TextEditingController();
   final _userIdController = TextEditingController();
-  
+
   // Form data
   int rentalDays = 1;
   bool needDriver = false;
@@ -47,16 +48,15 @@ class _BookListPageState extends State<BookListPage> {
 
   Future<void> _fetchCarDetail() async {
     try {
-      final response = await http.get(
-        Uri.parse('https://6839447d6561b8d882af9534.mockapi.io/api/sewa_mobil/mobil/${widget.carId}')
-      );
-      
+      final response = await http.get(Uri.parse(
+          'https://6839447d6561b8d882af9534.mockapi.io/api/sewa_mobil/mobil/${widget.carId}'));
+
       if (response.statusCode == 200) {
         final Map<String, dynamic> json = jsonDecode(response.body);
         setState(() {
           car = Car.fromJson(json);
-          // Assuming Car model has a price field, if not, set default price
-          basePrice = car?.harga?.toDouble() ?? 500000.0; // Default 500k per day
+          // PERBAIKAN: Pastikan konversi ke double
+          basePrice = car!.harga.toDouble();
           isLoading = false;
           _calculateTotalPrice();
         });
@@ -101,9 +101,9 @@ class _BookListPageState extends State<BookListPage> {
 
   String _formatCurrency(double amount) {
     return 'Rp ${amount.toStringAsFixed(0).replaceAllMapped(
-      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-      (Match m) => '${m[1]}.',
-    )}';
+          RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+          (Match m) => '${m[1]}.',
+        )}';
   }
 
   Future<void> _processBooking() async {
@@ -171,7 +171,8 @@ class _BookListPageState extends State<BookListPage> {
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: const Text("Booking Mobil", style: TextStyle(color: Colors.white)),
+        title:
+            const Text("Booking Mobil", style: TextStyle(color: Colors.white)),
         backgroundColor: Colors.teal[800],
         centerTitle: true,
         iconTheme: const IconThemeData(color: Colors.white),
@@ -322,7 +323,7 @@ class _BookListPageState extends State<BookListPage> {
               ),
             ),
             const SizedBox(height: 16),
-            
+
             // Lama Hari Input
             Row(
               children: [
@@ -362,9 +363,9 @@ class _BookListPageState extends State<BookListPage> {
                 ),
               ],
             ),
-            
+
             const SizedBox(height: 16),
-            
+
             // Driver Option
             Row(
               children: [
@@ -395,7 +396,7 @@ class _BookListPageState extends State<BookListPage> {
                 ),
               ],
             ),
-            
+
             if (needDriver)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
@@ -431,7 +432,6 @@ class _BookListPageState extends State<BookListPage> {
               ),
             ),
             const SizedBox(height: 16),
-            
             TextFormField(
               controller: _nameController,
               decoration: InputDecoration(
@@ -448,9 +448,7 @@ class _BookListPageState extends State<BookListPage> {
                 return null;
               },
             ),
-            
             const SizedBox(height: 16),
-            
             TextFormField(
               controller: _userIdController,
               decoration: InputDecoration(
@@ -491,7 +489,6 @@ class _BookListPageState extends State<BookListPage> {
               ),
             ),
             const SizedBox(height: 12),
-            
             _buildPriceItem(
               'Harga per hari',
               _formatCurrency(basePrice),
@@ -504,16 +501,13 @@ class _BookListPageState extends State<BookListPage> {
               'Subtotal',
               _formatCurrency(basePrice * rentalDays),
             ),
-            
             if (needDriver) ...[
               _buildPriceItem(
                 'Biaya sopir',
                 _formatCurrency(driverPrice),
               ),
             ],
-            
             const Divider(thickness: 2),
-            
             _buildPriceItem(
               'Total Harga',
               _formatCurrency(totalPrice),

@@ -378,7 +378,7 @@ class _DetailPageState extends State<DetailPage> {
         onPressed: () {
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => BookListPage(car: car!)),
+            MaterialPageRoute(builder: (context) => BookListPage(carId: car!.id)),
           );
         },
         style: ElevatedButton.styleFrom(

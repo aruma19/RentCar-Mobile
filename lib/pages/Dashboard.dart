@@ -26,7 +26,7 @@ class _DashboardState extends State<Dashboard> {
     FavoritesPage(),
     HistoryBookPage(),
     const SizedBox(),
-    BookListPage(),
+    BookListPage(carId: '',),
     HelpPage(),
   ];
 
