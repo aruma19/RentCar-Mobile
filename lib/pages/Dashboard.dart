@@ -213,6 +213,8 @@ class _DashboardState extends State<Dashboard> {
                             fontSize: 18, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 6),
                     Text("Merk: ${car.merk}"),
+                    Text("Harga: ${car.harga}"),
+                    Text("Kapasitas_penumpang: ${car.kapasitas_penumpang}"),
                     Text("Plat: ${car.plat}"),
                     Text("Tahun: ${car.year}"),
                     const SizedBox(height: 8),
