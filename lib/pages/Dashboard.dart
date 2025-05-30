@@ -11,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/Car.dart';
 import 'Login.dart';
 import 'detailPage.dart';
+import 'EditUserPage.dart'; // Import halaman edit user
 
 class Dashboard extends StatefulWidget {
   const Dashboard({super.key});
@@ -112,6 +113,18 @@ class _DashboardState extends State<Dashboard> {
     }
   }
 
+  void _navigateToEditUser() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const EditUserPage()),
+    );
+    
+    // Refresh username jika ada perubahan
+    if (result == true) {
+      _loadUsername();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -125,6 +138,15 @@ class _DashboardState extends State<Dashboard> {
           onPressed: _logout,
           color: Colors.white,
         ),
+        actions: [
+          // Tambahan icon user untuk edit profil
+          IconButton(
+            icon: const Icon(Icons.person),
+            onPressed: _navigateToEditUser,
+            color: Colors.white,
+            tooltip: 'Edit Profil',
+          ),
+        ],
       ),
       body: _selectedIndex == 2
           ? Column(

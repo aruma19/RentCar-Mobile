@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'Dashboard.dart';
 import 'Register.dart';
 import 'package:hive/hive.dart';
-import 'helpPage.dart';
-import 'Favorite.dart';
 import 'WelcomePage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 

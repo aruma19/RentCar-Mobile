@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:project_133_165/pages/Login.dart';
 import 'package:project_133_165/pages/WelcomePage.dart';
 
 void main() async {

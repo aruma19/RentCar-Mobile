@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'LandingPage.dart';
 import 'Login.dart';
 
 class WelcomePage extends StatefulWidget {
@@ -8,7 +9,8 @@ class WelcomePage extends StatefulWidget {
   State<WelcomePage> createState() => _WelcomePageState();
 }
 
-class _WelcomePageState extends State<WelcomePage> with TickerProviderStateMixin {
+class _WelcomePageState extends State<WelcomePage>
+    with TickerProviderStateMixin {
   late AnimationController _fadeController;
   late AnimationController _slideController;
   late Animation<double> _fadeAnimation;
@@ -17,17 +19,17 @@ class _WelcomePageState extends State<WelcomePage> with TickerProviderStateMixin
   @override
   void initState() {
     super.initState();
-    
+
     _fadeController = AnimationController(
       duration: const Duration(milliseconds: 1500),
       vsync: this,
     );
-    
+
     _slideController = AnimationController(
       duration: const Duration(milliseconds: 1200),
       vsync: this,
     );
-    
+
     _fadeAnimation = Tween<double>(
       begin: 0.0,
       end: 1.0,
@@ -35,7 +37,7 @@ class _WelcomePageState extends State<WelcomePage> with TickerProviderStateMixin
       parent: _fadeController,
       curve: Curves.easeInOut,
     ));
-    
+
     _slideAnimation = Tween<Offset>(
       begin: const Offset(0, 0.5),
       end: Offset.zero,
@@ -43,7 +45,7 @@ class _WelcomePageState extends State<WelcomePage> with TickerProviderStateMixin
       parent: _slideController,
       curve: Curves.easeOutCubic,
     ));
-    
+
     // Start animations
     _fadeController.forward();
     Future.delayed(const Duration(milliseconds: 300), () {
@@ -79,7 +81,7 @@ class _WelcomePageState extends State<WelcomePage> with TickerProviderStateMixin
             child: Column(
               children: [
                 const Spacer(flex: 1),
-                
+
                 // Logo atau Icon Section
                 FadeTransition(
                   opacity: _fadeAnimation,
@@ -100,9 +102,9 @@ class _WelcomePageState extends State<WelcomePage> with TickerProviderStateMixin
                     ),
                   ),
                 ),
-                
+
                 const SizedBox(height: 40),
-                
+
                 // Title Section
                 SlideTransition(
                   position: _slideAnimation,
@@ -133,9 +135,9 @@ class _WelcomePageState extends State<WelcomePage> with TickerProviderStateMixin
                     ),
                   ),
                 ),
-                
+
                 const SizedBox(height: 60),
-                
+
                 // Description Section
                 SlideTransition(
                   position: _slideAnimation,
@@ -166,9 +168,9 @@ class _WelcomePageState extends State<WelcomePage> with TickerProviderStateMixin
                     ),
                   ),
                 ),
-                
+
                 const Spacer(flex: 2),
-                
+
                 // Features Section
                 SlideTransition(
                   position: _slideAnimation,
@@ -193,9 +195,9 @@ class _WelcomePageState extends State<WelcomePage> with TickerProviderStateMixin
                     ),
                   ),
                 ),
-                
+
                 const Spacer(flex: 1),
-                
+
                 // Get Started Button
                 SlideTransition(
                   position: _slideAnimation,
@@ -209,22 +211,25 @@ class _WelcomePageState extends State<WelcomePage> with TickerProviderStateMixin
                           Navigator.pushReplacement(
                             context,
                             PageRouteBuilder(
-                              pageBuilder: (context, animation, secondaryAnimation) =>
-                                  const LoginPage(),
-                              transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                              pageBuilder:
+                                  (context, animation, secondaryAnimation) =>
+                                      const LandingPage(), // ✅ ini betul
+                              transitionsBuilder: (context, animation,
+                                  secondaryAnimation, child) {
                                 const begin = Offset(1.0, 0.0);
                                 const end = Offset.zero;
                                 const curve = Curves.easeInOut;
-                                
+
                                 var tween = Tween(begin: begin, end: end)
                                     .chain(CurveTween(curve: curve));
-                                
+
                                 return SlideTransition(
                                   position: animation.drive(tween),
                                   child: child,
                                 );
                               },
-                              transitionDuration: const Duration(milliseconds: 500),
+                              transitionDuration:
+                                  const Duration(milliseconds: 500),
                             ),
                           );
                         },
@@ -259,9 +264,9 @@ class _WelcomePageState extends State<WelcomePage> with TickerProviderStateMixin
                     ),
                   ),
                 ),
-                
+
                 const SizedBox(height: 20),
-                
+
                 // Skip Button (Optional)
                 SlideTransition(
                   position: _slideAnimation,
@@ -272,7 +277,8 @@ class _WelcomePageState extends State<WelcomePage> with TickerProviderStateMixin
                         Navigator.pushReplacement(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => const LoginPage(),
+                            builder: (context) =>
+                                const LoginPage(), // ✅ ini betul
                           ),
                         );
                       },
@@ -286,7 +292,7 @@ class _WelcomePageState extends State<WelcomePage> with TickerProviderStateMixin
                     ),
                   ),
                 ),
-                
+
                 const Spacer(flex: 1),
               ],
             ),

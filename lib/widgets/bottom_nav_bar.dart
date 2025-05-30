@@ -1,10 +1,5 @@
 // File: lib/widgets/bottom_nav_bar.dart
 import 'package:flutter/material.dart';
-import '../pages/Dashboard.dart';
-import '../pages/historyBook.dart';
-import '../pages/Favorite.dart';
-import '../pages/bookList.dart';
-import '../pages/helpPage.dart';
 
 class BottomNavBar extends StatefulWidget {
   final int currentIndex;
