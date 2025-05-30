@@ -4,6 +4,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/Car.dart';
 import 'detailPage.dart';
 
+// Model pembungkus untuk simpan key dan Car
+class FavoriteCar {
+  final dynamic key; // key Hive, bisa String/int/dll
+  final Car car;
+
+  FavoriteCar(this.key, this.car);
+}
+
 class FavoritesPage extends StatefulWidget {
   const FavoritesPage({super.key});
 
@@ -12,7 +20,7 @@ class FavoritesPage extends StatefulWidget {
 }
 
 class _FavoritesPageState extends State<FavoritesPage> {
-  List<Car> favorites = [];
+  List<FavoriteCar> favorites = [];
   bool isLoading = true;
   String? username;
 
@@ -40,29 +48,31 @@ class _FavoritesPageState extends State<FavoritesPage> {
 
     try {
       var box = await Hive.openBox('favorites_$username');
+      Map<dynamic, dynamic> allEntries = box.toMap();
 
-      // Konversi value ke list Car, pastikan e memang Map<String, dynamic>
-      List<Car> loadedFavorites = box.values
-          .map((e) {
-            // Jika data sudah Map, langsung cast, jika tidak, print debug
-            if (e is Map) {
-              return Car.fromJson(Map<String, dynamic>.from(e));
+      List<FavoriteCar> loadedFavorites = allEntries.entries
+          .map((entry) {
+            var key = entry.key;
+            var value = entry.value;
+
+            if (value is Map) {
+              Car car = Car.fromJson(Map<String, dynamic>.from(value));
+              // Jangan set id ulang karena id sudah ada di value
+              return FavoriteCar(key, car);
             } else {
-              print('Data tidak sesuai format Map: $e');
+              print('Data tidak sesuai format Map: $value');
               return null;
             }
           })
-          .whereType<Car>()
+          .whereType<FavoriteCar>()
           .toList();
-
-      print('Loaded favorites values: $loadedFavorites');
 
       setState(() {
         favorites = loadedFavorites;
         isLoading = false;
       });
 
-      await box.close(); // Tutup box setelah selesai (opsional)
+      await box.close();
     } catch (e) {
       print('Error loading favorites: $e');
       setState(() {
@@ -72,14 +82,14 @@ class _FavoritesPageState extends State<FavoritesPage> {
     }
   }
 
-  Future<void> _removeFavorite(Car car) async {
+  Future<void> _removeFavorite(FavoriteCar favoriteCar) async {
     if (username == null) return;
 
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Hapus Favorit'),
-        content: Text('Hapus ${car.nama} dari daftar favorit?'),
+        content: Text('Hapus ${favoriteCar.car.nama} dari daftar favorit?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -96,16 +106,16 @@ class _FavoritesPageState extends State<FavoritesPage> {
 
     if (confirm == true) {
       var box = await Hive.openBox('favorites_$username');
-      await box.delete(car.id);
+      await box.delete(favoriteCar.key);
       await box.close();
 
       setState(() {
-        favorites.removeWhere((c) => c.id == car.id);
+        favorites.removeWhere((f) => f.key == favoriteCar.key);
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('${car.nama} berhasil dihapus dari favorit'),
+          content: Text('${favoriteCar.car.nama} berhasil dihapus dari favorit'),
           backgroundColor: Colors.red,
         ),
       );
@@ -129,8 +139,8 @@ class _FavoritesPageState extends State<FavoritesPage> {
                     itemCount: favorites.length,
                     separatorBuilder: (_, __) => const SizedBox(height: 12),
                     itemBuilder: (context, index) {
-                      final car = favorites[index];
-                      return _buildCarCard(car);
+                      final favoriteCar = favorites[index];
+                      return _buildCarCard(favoriteCar);
                     },
                   ),
                 ),
@@ -187,7 +197,8 @@ class _FavoritesPageState extends State<FavoritesPage> {
     );
   }
 
-  Widget _buildCarCard(Car car) {
+  Widget _buildCarCard(FavoriteCar favoriteCar) {
+    final car = favoriteCar.car;
     return Card(
       color: Colors.white,
       shape: RoundedRectangleBorder(
@@ -307,7 +318,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
                             color: Colors.red,
                             size: 24,
                           ),
-                          onPressed: () => _removeFavorite(car),
+                          onPressed: () => _removeFavorite(favoriteCar),
                           tooltip: "Hapus dari favorit",
                         ),
                       ],

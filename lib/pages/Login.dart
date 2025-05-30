@@ -19,6 +19,8 @@ class _LoginPageState extends State<LoginPage> {
   final passwordController = TextEditingController();
   late SharedPreferences logindata;
   late bool newuser;
+  
+    bool _isObscure = true;
 
   @override
   void initState() {
@@ -45,7 +47,8 @@ class _LoginPageState extends State<LoginPage> {
 
     if (username.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Username dan password tidak boleh kosong")),
+        const SnackBar(
+            content: Text("Username dan password tidak boleh kosong")),
       );
       return;
     }
@@ -59,7 +62,8 @@ class _LoginPageState extends State<LoginPage> {
         logindata.setString('username', username);
 
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Login berhasil!"), backgroundColor: Colors.green),
+          const SnackBar(
+              content: Text("Login berhasil!"), backgroundColor: Colors.green),
         );
 
         await Future.delayed(const Duration(milliseconds: 500));
@@ -90,23 +94,26 @@ class _LoginPageState extends State<LoginPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-    backgroundColor: Colors.transparent,
-    elevation: 0,
-    leading: IconButton(
-      icon: const Icon(Icons.arrow_back, color: Colors.white),
-      onPressed: () {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const WelcomePage()),
-        );
-      },
-    ),
-  ),
-  extendBodyBehindAppBar: true,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const WelcomePage()),
+            );
+          },
+        ),
+      ),
+      extendBodyBehindAppBar: true,
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [Color(0xFF0F2027), Color(0xFF2C5364)], // hijau ke biru gelap
+            colors: [
+              Color(0xFF0F2027),
+              Color(0xFF2C5364)
+            ], // hijau ke biru gelap
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -136,7 +143,7 @@ class _LoginPageState extends State<LoginPage> {
                     hintText: 'Username',
                     hintStyle: const TextStyle(color: Colors.white70),
                     filled: true,
-                    fillColor: Colors.greenAccent.withOpacity(0.2),
+                    fillColor: Colors.white24,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(15),
                       borderSide: BorderSide.none,
@@ -146,17 +153,28 @@ class _LoginPageState extends State<LoginPage> {
                 const SizedBox(height: 20),
                 TextField(
                   controller: passwordController,
-                  obscureText: true,
+                  obscureText: _isObscure,
                   style: const TextStyle(color: Colors.white),
                   decoration: InputDecoration(
                     prefixIcon: const Icon(Icons.lock, color: Colors.white),
                     hintText: 'Password',
                     hintStyle: const TextStyle(color: Colors.white70),
                     filled: true,
-                    fillColor: Colors.greenAccent.withOpacity(0.2),
+                    fillColor: Colors.white24,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(15),
                       borderSide: BorderSide.none,
+                    ),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _isObscure ? Icons.visibility_off : Icons.visibility,
+                        color: Colors.white,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _isObscure = !_isObscure;
+                        });
+                      },
                     ),
                   ),
                 ),
@@ -167,7 +185,7 @@ class _LoginPageState extends State<LoginPage> {
                     onPressed: login,
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 16),
-                      backgroundColor: const Color(0xFF1B5E20), // Hijau tua
+                      backgroundColor: Colors.black, // Hijau tua
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),

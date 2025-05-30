@@ -10,37 +10,78 @@ class RegisterPage extends StatefulWidget {
 
 class _RegisterPageState extends State<RegisterPage> {
   final usernameController = TextEditingController();
+  final emailController = TextEditingController();
   final passwordController = TextEditingController();
+  final confirmPasswordController = TextEditingController();
+
+  bool passwordVisible = false;
+  bool confirmPasswordVisible = false;
 
   void register() async {
     String username = usernameController.text.trim();
+    String email = emailController.text.trim();
     String password = passwordController.text.trim();
+    String confirmPassword = confirmPasswordController.text.trim();
 
-    if (username.isNotEmpty && password.isNotEmpty) {
-      var box = Hive.box('users');
-
-      if (box.containsKey(username)) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Username sudah terdaftar!")),
-        );
-      } else {
-        await box.put(username, password);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Registrasi berhasil! Silakan login.")),
-        );
-        Navigator.pop(context); // kembali ke halaman login
-      }
-    } else {
+    if (username.isEmpty || email.isEmpty || password.isEmpty || confirmPassword.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Harap isi semua field.")),
       );
+      return;
     }
+
+    if (username.length < 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Username harus lebih dari 6 karakter.")),
+      );
+      return;
+    }
+
+    if (!email.contains('@')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Email harus valid dan mengandung '@'.")),
+      );
+      return;
+    }
+
+    if (password.length < 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Password harus lebih dari 6 karakter.")),
+      );
+      return;
+    }
+
+    if (password != confirmPassword) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Password dan konfirmasi password tidak sama.")),
+      );
+      return;
+    }
+
+    var box = Hive.box('users');
+
+    if (box.containsKey(username)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Username sudah terdaftar!")),
+      );
+      return;
+    }
+
+    // Simpan data user (saat ini hanya username dan password)
+    await box.put(username, password);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Registrasi berhasil! Silakan login.")),
+    );
+    Navigator.pop(context); // kembali ke halaman login
   }
 
   @override
   void dispose() {
     usernameController.dispose();
+    emailController.dispose();
     passwordController.dispose();
+    confirmPasswordController.dispose();
     super.dispose();
   }
 
@@ -50,7 +91,7 @@ class _RegisterPageState extends State<RegisterPage> {
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [Color(0xFF141E30), Color(0xFF243B55)],
+            colors: [Color(0xFF0F2027), Color(0xFF2C5364)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -72,12 +113,13 @@ class _RegisterPageState extends State<RegisterPage> {
                   ),
                 ),
                 const SizedBox(height: 40),
+                // Username
                 TextField(
                   controller: usernameController,
                   style: const TextStyle(color: Colors.white),
                   decoration: InputDecoration(
                     prefixIcon: const Icon(Icons.person, color: Colors.white),
-                    hintText: 'Username',
+                    hintText: 'Username (min 6 karakter)',
                     hintStyle: const TextStyle(color: Colors.white70),
                     filled: true,
                     fillColor: Colors.white24,
@@ -88,19 +130,78 @@ class _RegisterPageState extends State<RegisterPage> {
                   ),
                 ),
                 const SizedBox(height: 20),
+                // Email
                 TextField(
-                  controller: passwordController,
-                  obscureText: true,
+                  controller: emailController,
+                  keyboardType: TextInputType.emailAddress,
                   style: const TextStyle(color: Colors.white),
                   decoration: InputDecoration(
-                    prefixIcon: const Icon(Icons.lock, color: Colors.white),
-                    hintText: 'Password',
+                    prefixIcon: const Icon(Icons.email, color: Colors.white),
+                    hintText: 'Email',
                     hintStyle: const TextStyle(color: Colors.white70),
                     filled: true,
                     fillColor: Colors.white24,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(15),
                       borderSide: BorderSide.none,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                // Password
+                TextField(
+                  controller: passwordController,
+                  obscureText: !passwordVisible,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    prefixIcon: const Icon(Icons.lock, color: Colors.white),
+                    hintText: 'Password (min 6 karakter)',
+                    hintStyle: const TextStyle(color: Colors.white70),
+                    filled: true,
+                    fillColor: Colors.white24,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(15),
+                      borderSide: BorderSide.none,
+                    ),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        passwordVisible ? Icons.visibility : Icons.visibility_off,
+                        color: Colors.white70,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          passwordVisible = !passwordVisible;
+                        });
+                      },
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                // Konfirmasi Password
+                TextField(
+                  controller: confirmPasswordController,
+                  obscureText: !confirmPasswordVisible,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    prefixIcon: const Icon(Icons.lock, color: Colors.white),
+                    hintText: 'Konfirmasi Password',
+                    hintStyle: const TextStyle(color: Colors.white70),
+                    filled: true,
+                    fillColor: Colors.white24,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(15),
+                      borderSide: BorderSide.none,
+                    ),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        confirmPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                        color: Colors.white70,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          confirmPasswordVisible = !confirmPasswordVisible;
+                        });
+                      },
                     ),
                   ),
                 ),
