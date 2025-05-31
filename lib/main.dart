@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:project_133_165/pages/WelcomePage.dart';
-import 'package:project_133_165/pages/BookPage.dart';
 import 'package:project_133_165/models/User.dart';
 import 'package:project_133_165/models/book.dart'; // Gunakan nama file huruf kecil
-
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Hive.initFlutter();

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:project_133_165/pages/BookPage.dart';
 import 'dart:convert';
 import '../models/Car.dart';
 import '../services/HiveService.dart';
@@ -113,8 +114,8 @@ class _BookListPageState extends State<BookListPage> {
   String _formatDate(DateTime? date) {
     if (date == null) return 'Pilih Tanggal';
     return '${date.day.toString().padLeft(2, '0')}/'
-           '${date.month.toString().padLeft(2, '0')}'
-           '/${date.year}';
+        '${date.month.toString().padLeft(2, '0')}'
+        '/${date.year}';
   }
 
   Future<void> _selectStartDate() async {
@@ -143,7 +144,9 @@ class _BookListPageState extends State<BookListPage> {
   Future<void> _selectEndDate() async {
     final DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: endDate ?? (startDate?.add(const Duration(days: 1)) ?? DateTime.now().add(const Duration(days: 2))),
+      initialDate: endDate ??
+          (startDate?.add(const Duration(days: 1)) ??
+              DateTime.now().add(const Duration(days: 2))),
       firstDate: startDate ?? DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 365)),
       helpText: 'Pilih Tanggal Selesai Rental',
@@ -236,13 +239,14 @@ class _BookListPageState extends State<BookListPage> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('ID Booking: ${booking.id}', 
-                     style: const TextStyle(fontWeight: FontWeight.bold)),
+                Text('ID Booking: ${booking.id}',
+                    style: const TextStyle(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
                 Text('Mobil: ${car!.nama}'),
                 Text('Pemesan: ${_nameController.text}'),
                 Text('ID User: ${_userIdController.text}'),
-                Text('Tanggal Rental: ${_formatDate(startDate)} - ${_formatDate(endDate)}'),
+                Text(
+                    'Tanggal Rental: ${_formatDate(startDate)} - ${_formatDate(endDate)}'),
                 Text('Lama Sewa: $rentalDays hari'),
                 Text('Dengan Sopir: ${needDriver ? "Ya" : "Tidak"}'),
                 const Divider(),
@@ -277,7 +281,10 @@ class _BookListPageState extends State<BookListPage> {
                   Navigator.pop(context); // Close dialog
                   Navigator.pop(context); // Back to previous page
                   // Navigate to BookPage to see the booking
-                  Navigator.pushNamed(context, '/bookings');
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => BookPage()),
+                  );
                 },
                 style: TextButton.styleFrom(
                   backgroundColor: Colors.teal[800],
@@ -289,11 +296,10 @@ class _BookListPageState extends State<BookListPage> {
           ),
         );
       }
-
     } catch (e) {
       // Close loading dialog
       if (mounted) Navigator.pop(context);
-      
+
       // Show error dialog
       if (mounted) {
         showDialog(
@@ -333,7 +339,6 @@ class _BookListPageState extends State<BookListPage> {
             children: [
               Text('Total: ${_formatCurrency(totalPrice)}'),
               const SizedBox(height: 16),
-              
               RadioListTile<String>(
                 title: const Text('Booking Saja (Bayar Nanti)'),
                 subtitle: const Text('Rp 0'),
@@ -346,7 +351,6 @@ class _BookListPageState extends State<BookListPage> {
                   });
                 },
               ),
-              
               RadioListTile<String>(
                 title: const Text('DP 50%'),
                 subtitle: Text(_formatCurrency(totalPrice * 0.5)),
@@ -359,7 +363,6 @@ class _BookListPageState extends State<BookListPage> {
                   });
                 },
               ),
-              
               RadioListTile<String>(
                 title: const Text('Bayar Lunas'),
                 subtitle: Text(_formatCurrency(totalPrice)),
@@ -427,7 +430,8 @@ class _BookListPageState extends State<BookListPage> {
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: const Text("Booking Mobil", style: TextStyle(color: Colors.white)),
+        title:
+            const Text("Booking Mobil", style: TextStyle(color: Colors.white)),
         backgroundColor: Colors.teal[800],
         centerTitle: true,
         iconTheme: const IconThemeData(color: Colors.white),
@@ -590,7 +594,8 @@ class _BookListPageState extends State<BookListPage> {
                     children: [
                       const Text(
                         'Tanggal Mulai:',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                        style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.w500),
                       ),
                       const SizedBox(height: 8),
                       InkWell(
@@ -608,10 +613,13 @@ class _BookListPageState extends State<BookListPage> {
                                 _formatDate(startDate),
                                 style: TextStyle(
                                   fontSize: 16,
-                                  color: startDate == null ? Colors.grey[600] : Colors.black87,
+                                  color: startDate == null
+                                      ? Colors.grey[600]
+                                      : Colors.black87,
                                 ),
                               ),
-                              Icon(Icons.calendar_today, color: Colors.teal[800]),
+                              Icon(Icons.calendar_today,
+                                  color: Colors.teal[800]),
                             ],
                           ),
                         ),
@@ -626,7 +634,8 @@ class _BookListPageState extends State<BookListPage> {
                     children: [
                       const Text(
                         'Tanggal Selesai:',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                        style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.w500),
                       ),
                       const SizedBox(height: 8),
                       InkWell(
@@ -644,10 +653,13 @@ class _BookListPageState extends State<BookListPage> {
                                 _formatDate(endDate),
                                 style: TextStyle(
                                   fontSize: 16,
-                                  color: endDate == null ? Colors.grey[600] : Colors.black87,
+                                  color: endDate == null
+                                      ? Colors.grey[600]
+                                      : Colors.black87,
                                 ),
                               ),
-                              Icon(Icons.calendar_today, color: Colors.teal[800]),
+                              Icon(Icons.calendar_today,
+                                  color: Colors.teal[800]),
                             ],
                           ),
                         ),

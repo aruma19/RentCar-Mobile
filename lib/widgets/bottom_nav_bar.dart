@@ -57,7 +57,7 @@ class _BottomNavBarState extends State<BottomNavBar> with SingleTickerProviderSt
           child: Row(
             children: [
               _buildNavItem(0, Icons.favorite, 'Favorite'),
-              _buildNavItem(1, Icons.history, 'History'),
+              _buildNavItem(1, Icons.person, 'Profile'),
               _buildNavItem(2, Icons.home, 'Home'),
               _buildNavItem(3, Icons.library_add_check_outlined, 'Booking'),
               _buildNavItem(4, Icons.help, 'Help'),
@@ -113,7 +113,7 @@ class _BottomNavBarState extends State<BottomNavBar> with SingleTickerProviderSt
       case 0:
         return Icons.group;
       case 1:
-        return Icons.history;
+        return Icons.person;
       case 2:
         return Icons.home;
       case 3:

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'bookList.dart';
 import 'helpPage.dart';
-import 'historyBook.dart';
 import 'Favorite.dart';
 import 'package:project_133_165/widgets/bottom_nav_bar.dart';
 import 'dart:convert';
@@ -27,7 +26,7 @@ class _DashboardState extends State<Dashboard> with TickerProviderStateMixin {
 
   final List<Widget> _pages = [
     FavoritesPage(),
-    HistoryBookPage(),
+    EditUserPage(),
     const SizedBox(),
     BookPage(),
     HelpPage(),
@@ -208,17 +207,6 @@ class _DashboardState extends State<Dashboard> with TickerProviderStateMixin {
     }
   }
 
-  void _navigateToEditUser() async {
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const EditUserPage()),
-    );
-    
-    if (result == true) {
-      _loadUsername();
-    }
-  }
-
   String _formatCurrency(double amount) {
     return 'Rp ${amount.toStringAsFixed(0).replaceAllMapped(
           RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
@@ -249,14 +237,6 @@ class _DashboardState extends State<Dashboard> with TickerProviderStateMixin {
           onPressed: _logout,
           color: Colors.white,
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.person),
-            onPressed: _navigateToEditUser,
-            color: Colors.white,
-            tooltip: 'Edit Profil',
-          ),
-        ],
       ),
       body: _selectedIndex == 2
           ? Column(

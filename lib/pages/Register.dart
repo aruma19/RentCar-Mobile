@@ -10,7 +10,6 @@ class RegisterPage extends StatefulWidget {
 
 class _RegisterPageState extends State<RegisterPage> {
   final usernameController = TextEditingController();
-  final emailController = TextEditingController();
   final passwordController = TextEditingController();
   final confirmPasswordController = TextEditingController();
 
@@ -19,11 +18,10 @@ class _RegisterPageState extends State<RegisterPage> {
 
   void register() async {
     String username = usernameController.text.trim();
-    String email = emailController.text.trim();
     String password = passwordController.text.trim();
     String confirmPassword = confirmPasswordController.text.trim();
 
-    if (username.isEmpty || email.isEmpty || password.isEmpty || confirmPassword.isEmpty) {
+    if (username.isEmpty || password.isEmpty || confirmPassword.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Harap isi semua field.")),
       );
@@ -33,13 +31,6 @@ class _RegisterPageState extends State<RegisterPage> {
     if (username.length < 6) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Username harus lebih dari 6 karakter.")),
-      );
-      return;
-    }
-
-    if (!email.contains('@')) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Email harus valid dan mengandung '@'.")),
       );
       return;
     }
@@ -79,7 +70,6 @@ class _RegisterPageState extends State<RegisterPage> {
   @override
   void dispose() {
     usernameController.dispose();
-    emailController.dispose();
     passwordController.dispose();
     confirmPasswordController.dispose();
     super.dispose();
@@ -120,24 +110,6 @@ class _RegisterPageState extends State<RegisterPage> {
                   decoration: InputDecoration(
                     prefixIcon: const Icon(Icons.person, color: Colors.white),
                     hintText: 'Username (min 6 karakter)',
-                    hintStyle: const TextStyle(color: Colors.white70),
-                    filled: true,
-                    fillColor: Colors.white24,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(15),
-                      borderSide: BorderSide.none,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                // Email
-                TextField(
-                  controller: emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: InputDecoration(
-                    prefixIcon: const Icon(Icons.email, color: Colors.white),
-                    hintText: 'Email',
                     hintStyle: const TextStyle(color: Colors.white70),
                     filled: true,
                     fillColor: Colors.white24,
