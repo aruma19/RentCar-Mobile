@@ -32,9 +32,9 @@ class BookAdapter extends TypeAdapter<Book> {
       endDate: fields[12] as DateTime,
       bookingDate: fields[13] as DateTime,
       createdAt: fields[14] as DateTime?,
-      status: fields[15] as String,
-      paymentStatus: fields[16] as String,
-      paidAmount: fields[17] as double,
+      status: fields[15] as String? ?? 'pending', // Default value for backward compatibility
+      paymentStatus: fields[16] as String? ?? 'unpaid', // Default value for backward compatibility
+      paidAmount: fields[17] as double? ?? 0.0, // Default value for backward compatibility
       paymentDate: fields[18] as DateTime?,
     );
   }
@@ -42,7 +42,7 @@ class BookAdapter extends TypeAdapter<Book> {
   @override
   void write(BinaryWriter writer, Book obj) {
     writer
-      ..writeByte(19)  // Updated from 16 to 19 (total fields)
+      ..writeByte(19)  // Total 19 fields (0-18)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -76,11 +76,11 @@ class BookAdapter extends TypeAdapter<Book> {
       ..writeByte(15)
       ..write(obj.status)
       ..writeByte(16)
-      ..write(obj.paymentStatus)  // New field
+      ..write(obj.paymentStatus)
       ..writeByte(17)
-      ..write(obj.paidAmount)     // New field
+      ..write(obj.paidAmount)
       ..writeByte(18)
-      ..write(obj.paymentDate);   // New field
+      ..write(obj.paymentDate);
   }
 
   @override

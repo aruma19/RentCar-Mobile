@@ -9,8 +9,14 @@ import '../models/book.dart';
 class BookListPage extends StatefulWidget {
   final String carId;
   final Car? car;
+  final String currentUserId; // TAMBAHKAN PARAMETER INI
 
-  const BookListPage({super.key, required this.carId, this.car});
+  const BookListPage({
+    super.key, 
+    required this.carId, 
+    this.car,
+    required this.currentUserId, // REQUIRED
+  });
 
   @override
   State<BookListPage> createState() => _BookListPageState();
@@ -43,6 +49,9 @@ class _BookListPageState extends State<BookListPage> {
     startDate = DateTime.now().add(const Duration(days: 1));
     endDate = DateTime.now().add(const Duration(days: 2));
     _calculateRentalDays();
+    
+    // **PERBAIKAN: Set default user ID dari parameter**
+    _userIdController.text = widget.currentUserId;
   }
 
   @override
@@ -162,6 +171,7 @@ class _BookListPageState extends State<BookListPage> {
     }
   }
 
+  /// **PERBAIKAN: Proses booking dengan validasi business logic yang baru**
   Future<void> _processBooking() async {
     if (!_formKey.currentState!.validate()) {
       return;
@@ -175,6 +185,22 @@ class _BookListPageState extends State<BookListPage> {
         ),
       );
       return;
+    }
+
+    // **VALIDASI: Cek apakah user sudah punya booking aktif untuk mobil ini**
+    try {
+      final hasActiveBooking = await HiveService.hasActiveBookingForCar(
+        widget.currentUserId, 
+        widget.carId
+      );
+      
+      if (hasActiveBooking) {
+        _showErrorDialog('Booking Tidak Dapat Diproses', 
+          'Anda sudah memiliki booking aktif untuk mobil ini. Mohon selesaikan booking sebelumnya terlebih dahulu.');
+        return;
+      }
+    } catch (e) {
+      print('Error checking active booking: $e');
     }
 
     // Show payment selection dialog first
@@ -191,14 +217,23 @@ class _BookListPageState extends State<BookListPage> {
     );
 
     try {
-      // Create booking object
+      // **PERBAIKAN: Create booking dengan status dan payment yang konsisten**
+      String initialStatus = 'pending';
+      String paymentStatus = paymentResult['status'];
+      double paidAmount = paymentResult['amount'];
+      
+      // Auto confirm jika sudah bayar DP atau lunas
+      if (paymentStatus == 'dp' || paymentStatus == 'paid') {
+        initialStatus = 'confirmed';
+      }
+
       final booking = Book(
         id: HiveService.generateBookingId(),
         carId: widget.carId,
         carName: car!.nama,
         carMerk: car!.merk,
         userName: _nameController.text.trim(),
-        userId: _userIdController.text.trim(),
+        userId: widget.currentUserId, // **PERBAIKAN: Gunakan currentUserId**
         rentalDays: rentalDays,
         needDriver: needDriver,
         basePrice: basePrice,
@@ -208,13 +243,13 @@ class _BookListPageState extends State<BookListPage> {
         endDate: endDate!,
         bookingDate: DateTime.now(),
         createdAt: DateTime.now(),
-        status: 'active',
-        paymentStatus: paymentResult['status'],
-        paidAmount: paymentResult['amount'],
-        paymentDate: paymentResult['status'] == 'paid' ? DateTime.now() : null,
+        status: initialStatus, // **PERBAIKAN: Status berdasarkan pembayaran**
+        paymentStatus: paymentStatus == 'pending' ? 'unpaid' : paymentStatus, // **PERBAIKAN: Status pembayaran yang konsisten**
+        paidAmount: paidAmount,
+        paymentDate: paidAmount > 0 ? DateTime.now() : null,
       );
 
-      // Save booking to Hive
+      // **PERBAIKAN: Simpan dengan validasi business logic**
       await HiveService.saveBooking(booking);
 
       // Simulate processing time
@@ -244,7 +279,7 @@ class _BookListPageState extends State<BookListPage> {
                 const SizedBox(height: 8),
                 Text('Mobil: ${car!.nama}'),
                 Text('Pemesan: ${_nameController.text}'),
-                Text('ID User: ${_userIdController.text}'),
+                Text('User ID: ${booking.userId}'),
                 Text(
                     'Tanggal Rental: ${_formatDate(startDate)} - ${_formatDate(endDate)}'),
                 Text('Lama Sewa: $rentalDays hari'),
@@ -255,10 +290,17 @@ class _BookListPageState extends State<BookListPage> {
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
                 Text(
-                  'Status Pembayaran: ${_getPaymentStatusText(booking.paymentStatus)}',
+                  'Status: ${booking.getStatusText()}',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    color: _getPaymentStatusColor(booking.paymentStatus),
+                    color: booking.getStatusColor(),
+                  ),
+                ),
+                Text(
+                  'Pembayaran: ${booking.getPaymentStatusText()}',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: booking.getPaymentStatusColor(),
                   ),
                 ),
                 if (booking.paidAmount > 0)
@@ -266,31 +308,65 @@ class _BookListPageState extends State<BookListPage> {
                     'Dibayar: ${_formatCurrency(booking.paidAmount)}',
                     style: const TextStyle(fontWeight: FontWeight.w500),
                   ),
+                const SizedBox(height: 8),
+                // **BARU: Informasi next steps**
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.blue[50],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Langkah Selanjutnya:',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue[800],
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      if (booking.status == 'pending')
+                        Text(
+                          '• Lakukan pembayaran DP atau lunas untuk konfirmasi',
+                          style: TextStyle(fontSize: 12, color: Colors.blue[700]),
+                        ),
+                      if (booking.status == 'confirmed')
+                        Text(
+                          '• Booking telah dikonfirmasi, siap untuk rental pada tanggal yang ditentukan',
+                          style: TextStyle(fontSize: 12, color: Colors.blue[700]),
+                        ),
+                    ],
+                  ),
+                ),
               ],
             ),
             actions: [
+              // TextButton(
+              //   onPressed: () {
+              //     Navigator.pop(context); // Close dialog
+              //     Navigator.pop(context); // Back to previous page
+              //   },
+              //   child: const Text('OK'),
+              // ),
               TextButton(
                 onPressed: () {
                   Navigator.pop(context); // Close dialog
                   Navigator.pop(context); // Back to previous page
-                },
-                child: const Text('OK'),
-              ),
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(context); // Close dialog
-                  Navigator.pop(context); // Back to previous page
-                  // Navigate to BookPage to see the booking
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => BookPage()),
-                  );
+                  // Navigate to BookPage dengan currentUserId
+                  // Navigator.push(
+                  //   context,
+                  //   MaterialPageRoute(
+                  //     builder: (context) => BookPage(currentUserId: widget.currentUserId),
+                  //   ),
+                  // );
                 },
                 style: TextButton.styleFrom(
                   backgroundColor: Colors.teal[800],
                   foregroundColor: Colors.white,
                 ),
-                child: const Text('Lihat Booking'),
+                child: const Text('OK'),
               ),
             ],
           ),
@@ -302,31 +378,14 @@ class _BookListPageState extends State<BookListPage> {
 
       // Show error dialog
       if (mounted) {
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: Row(
-              children: [
-                Icon(Icons.error, color: Colors.red[600]),
-                const SizedBox(width: 8),
-                const Text('Booking Gagal!'),
-              ],
-            ),
-            content: Text('Terjadi kesalahan saat menyimpan booking: $e'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('OK'),
-              ),
-            ],
-          ),
-        );
+        _showErrorDialog('Booking Gagal!', 'Terjadi kesalahan saat menyimpan booking: $e');
       }
     }
   }
 
+  /// **PERBAIKAN: Dialog pembayaran dengan opsi yang konsisten**
   Future<Map<String, dynamic>?> _showPaymentSelectionDialog() async {
-    String paymentType = 'pending';
+    String paymentType = 'unpaid'; // **PERBAIKAN: Default unpaid instead of pending**
     double amount = 0.0;
 
     return showDialog<Map<String, dynamic>>(
@@ -340,9 +399,9 @@ class _BookListPageState extends State<BookListPage> {
               Text('Total: ${_formatCurrency(totalPrice)}'),
               const SizedBox(height: 16),
               RadioListTile<String>(
-                title: const Text('Booking Saja (Bayar Nanti)'),
-                subtitle: const Text('Rp 0'),
-                value: 'pending',
+                title: const Text('Booking Tanpa Bayar'),
+                subtitle: const Text('Bayar nanti (booking pending)'),
+                value: 'unpaid',
                 groupValue: paymentType,
                 onChanged: (value) {
                   setDialogState(() {
@@ -353,7 +412,7 @@ class _BookListPageState extends State<BookListPage> {
               ),
               RadioListTile<String>(
                 title: const Text('DP 50%'),
-                subtitle: Text(_formatCurrency(totalPrice * 0.5)),
+                subtitle: Text('${_formatCurrency(totalPrice * 0.5)} (booking dikonfirmasi)'),
                 value: 'dp',
                 groupValue: paymentType,
                 onChanged: (value) {
@@ -365,7 +424,7 @@ class _BookListPageState extends State<BookListPage> {
               ),
               RadioListTile<String>(
                 title: const Text('Bayar Lunas'),
-                subtitle: Text(_formatCurrency(totalPrice)),
+                subtitle: Text('${_formatCurrency(totalPrice)} (booking dikonfirmasi)'),
                 value: 'paid',
                 groupValue: paymentType,
                 onChanged: (value) {
@@ -399,30 +458,27 @@ class _BookListPageState extends State<BookListPage> {
     );
   }
 
-  String _getPaymentStatusText(String status) {
-    switch (status) {
-      case 'pending':
-        return 'Belum Bayar';
-      case 'dp':
-        return 'DP (50%)';
-      case 'paid':
-        return 'Lunas';
-      default:
-        return 'Unknown';
-    }
-  }
-
-  Color _getPaymentStatusColor(String status) {
-    switch (status) {
-      case 'pending':
-        return Colors.orange;
-      case 'dp':
-        return Colors.blue;
-      case 'paid':
-        return Colors.green;
-      default:
-        return Colors.grey;
-    }
+  /// **BARU: Helper method untuk menampilkan error dialog**
+  void _showErrorDialog(String title, String message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.error, color: Colors.red[600]),
+            const SizedBox(width: 8),
+            Text(title),
+          ],
+        ),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -501,10 +557,61 @@ class _BookListPageState extends State<BookListPage> {
             _buildCustomerInfoCard(),
             const SizedBox(height: 16),
             _buildPricingCard(),
+            const SizedBox(height: 16),
+            _buildBusinessLogicInfo(), // **BARU: Informasi business logic**
             const SizedBox(height: 24),
             _buildBookButton(),
             const SizedBox(height: 20),
           ],
+        ),
+      ),
+    );
+  }
+
+  /// **BARU: Card informasi business logic**
+  Widget _buildBusinessLogicInfo() {
+    return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.info_outline, color: Colors.blue[600], size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  'Informasi Booking',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blue[800],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _buildInfoItem('• Booking tanpa pembayaran akan berstatus "Pending"'),
+            _buildInfoItem('• Booking dengan DP/Lunas akan langsung "Dikonfirmasi"'),
+            _buildInfoItem('• Anda hanya bisa punya 1 booking aktif per mobil'),
+            _buildInfoItem('• Booking dapat dibatalkan sebelum dimulai'),
+            _buildInfoItem('• Pembayaran sisa dapat dilakukan setelah booking dikonfirmasi'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoItem(String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 12,
+          color: Colors.grey[700],
         ),
       ),
     );
@@ -812,6 +919,7 @@ class _BookListPageState extends State<BookListPage> {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 prefixIcon: const Icon(Icons.badge),
+                enabled: false, // **PERBAIKAN: Disable karena sudah diset otomatis**
               ),
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {

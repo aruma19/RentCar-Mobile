@@ -16,6 +16,7 @@ class _FavoritesPageState extends State<FavoritesPage>
     with TickerProviderStateMixin {
   List<Car> favorites = [];
   bool isLoading = true;
+  String? errorMessage;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
@@ -59,21 +60,71 @@ class _FavoritesPageState extends State<FavoritesPage>
   Future<void> _loadFavorites() async {
     setState(() {
       isLoading = true;
+      errorMessage = null;
     });
 
     try {
+      // Cek apakah user sudah login
+      if (!FavoriteService.isUserLoggedIn()) {
+        setState(() {
+          favorites = [];
+          isLoading = false;
+        });
+        _showLoginRequired();
+        return;
+      }
+
+      print('📱 Loading favorites...');
       final favoriteCars = await FavoriteService.getFavoriteCars();
+      
       setState(() {
         favorites = favoriteCars;
         isLoading = false;
       });
+      
       _animationController.forward();
+      print('✅ Loaded ${favoriteCars.length} favorite cars');
+      
     } catch (e) {
-      print('Error loading favorites: $e');
+      print('❌ Error loading favorites: $e');
       setState(() {
         favorites = [];
         isLoading = false;
+        errorMessage = 'Terjadi kesalahan saat memuat favorit: ${e.toString()}';
       });
+    }
+  }
+
+  void _showLoginRequired() {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Row(
+            children: [
+              Icon(Icons.login, color: Colors.white, size: 20),
+              SizedBox(width: 8),
+              Text('Silakan login untuk melihat favorit'),
+            ],
+          ),
+          backgroundColor: Colors.orange[600],
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          margin: const EdgeInsets.all(16),
+          action: SnackBarAction(
+            label: 'Login',
+            textColor: Colors.white,
+            onPressed: () {
+              // Navigate to login or trigger logout to go to login page
+              Navigator.of(context).pushNamedAndRemoveUntil(
+                '/login', 
+                (route) => false,
+              );
+            },
+          ),
+        ),
+      );
     }
   }
 
@@ -129,21 +180,62 @@ class _FavoritesPageState extends State<FavoritesPage>
     );
 
     if (confirm == true) {
-      final success = await FavoriteService.removeFromFavorites(car.id);
+      try {
+        final success = await FavoriteService.removeFromFavorites(car.id);
 
-      if (success) {
-        setState(() {
-          favorites.removeWhere((f) => f.id == car.id);
-        });
+        if (success) {
+          setState(() {
+            favorites.removeWhere((f) => f.id == car.id);
+          });
 
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Row(
+                  children: [
+                    const Icon(Icons.check_circle, color: Colors.white, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text('${car.nama} berhasil dihapus dari favorit')),
+                  ],
+                ),
+                backgroundColor: Colors.red[600],
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+                margin: const EdgeInsets.all(16),
+              ),
+            );
+          }
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Row(
+                  children: [
+                    Icon(Icons.error, color: Colors.white, size: 20),
+                    SizedBox(width: 8),
+                    Text('Gagal menghapus dari favorit'),
+                  ],
+                ),
+                backgroundColor: Colors.red[600],
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+                margin: const EdgeInsets.all(16),
+              ),
+            );
+          }
+        }
+      } catch (e) {
+        print('❌ Error removing favorite: $e');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Row(
                 children: [
-                  const Icon(Icons.check_circle, color: Colors.white, size: 20),
+                  const Icon(Icons.error, color: Colors.white, size: 20),
                   const SizedBox(width: 8),
-                  Text('${car.nama} berhasil dihapus dari favorit'),
+                  Expanded(child: Text('Terjadi kesalahan: ${e.toString()}')),
                 ],
               ),
               backgroundColor: Colors.red[600],
@@ -162,12 +254,34 @@ class _FavoritesPageState extends State<FavoritesPage>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[50],
+      appBar: AppBar(
+        title: const Text(
+          'Favorit Saya',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        backgroundColor: Colors.teal[800],
+        elevation: 0,
+        centerTitle: true,
+        actions: [
+          if (favorites.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.refresh, color: Colors.white),
+              onPressed: _loadFavorites,
+              tooltip: 'Refresh',
+            ),
+        ],
+      ),
       body: SafeArea(
         child: isLoading
             ? _buildLoadingState()
-            : favorites.isEmpty
-                ? _buildEmptyState()
-                : _buildFavoritesList(),
+            : errorMessage != null
+                ? _buildErrorState()
+                : favorites.isEmpty
+                    ? _buildEmptyState()
+                    : _buildFavoritesList(),
       ),
     );
   }
@@ -202,6 +316,76 @@ class _FavoritesPageState extends State<FavoritesPage>
                 color: Colors.grey[700],
                 fontWeight: FontWeight.w500,
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorState() {
+    return Center(
+      child: Container(
+        margin: const EdgeInsets.all(32),
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 15,
+              offset: const Offset(0, 5),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.red[50],
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.error_outline_rounded,
+                size: 48,
+                color: Colors.red[400],
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'Oops!',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey[800],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              errorMessage!,
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey[600],
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: _loadFavorites,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.teal[800],
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 2,
+              ),
+              icon: const Icon(Icons.refresh),
+              label: const Text('Coba Lagi', style: TextStyle(fontWeight: FontWeight.w600)),
             ),
           ],
         ),
@@ -268,34 +452,34 @@ class _FavoritesPageState extends State<FavoritesPage>
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 32),
-          ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.of(context).pushAndRemoveUntil(
-                    MaterialPageRoute(builder: (context) => Dashboard()),
-                    (route) => false, // Menghapus semua route sebelumnya
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.teal[800],
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 32,
-                    vertical: 16,
+                ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute(builder: (context) => Dashboard()),
+                      (route) => false,
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.teal[800],
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 32,
+                      vertical: 16,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    elevation: 4,
+                    shadowColor: Colors.teal.withOpacity(0.3),
                   ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+                  icon: const Icon(Icons.explore, size: 20),
+                  label: const Text(
+                    "Jelajahi Mobil",
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 16,
+                    ),
                   ),
-                  elevation: 4,
-                  shadowColor: Colors.teal.withOpacity(0.3),
-                ),
-                icon: const Icon(Icons.explore, size: 20),
-                label: const Text(
-                  "Jelajahi Mobil",
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 16,
-                  ),
-                ),
                 ),
               ],
             ),

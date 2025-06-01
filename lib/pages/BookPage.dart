@@ -4,7 +4,9 @@ import '../services/HiveService.dart';
 import 'detailBook.dart';
 
 class BookPage extends StatefulWidget {
-  const BookPage({super.key});
+  final String currentUserId; // TAMBAHKAN PARAMETER INI
+  
+  const BookPage({super.key, required this.currentUserId});
 
   @override
   State<BookPage> createState() => _BookPageState();
@@ -23,7 +25,7 @@ class _BookPageState extends State<BookPage> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 5, vsync: this); // Updated to 5 tabs
     _initAnimations();
     _loadBookings();
   }
@@ -50,13 +52,15 @@ class _BookPageState extends State<BookPage> with TickerProviderStateMixin {
     super.dispose();
   }
 
+  /// **PERBAIKAN: Load booking berdasarkan USER ID**
   Future<void> _loadBookings() async {
     setState(() {
       isLoading = true;
     });
 
     try {
-      final bookings = await HiveService.getAllBookings();
+      // PERBAIKAN: Gunakan getBookingsByUser instead of getAllBookings
+      final bookings = await HiveService.getBookingsByUser(widget.currentUserId);
       setState(() {
         allBookings = bookings;
         _filterBookings();
@@ -76,8 +80,11 @@ class _BookPageState extends State<BookPage> with TickerProviderStateMixin {
       case 'all':
         filteredBookings = List.from(allBookings);
         break;
+      case 'pending':
+        filteredBookings = allBookings.where((book) => book.isPending).toList();
+        break;
       case 'active':
-        filteredBookings = allBookings.where((book) => book.isActive).toList();
+        filteredBookings = allBookings.where((book) => book.isActive || book.isConfirmed).toList();
         break;
       case 'completed':
         filteredBookings = allBookings.where((book) => book.isCompleted).toList();
@@ -98,12 +105,15 @@ class _BookPageState extends State<BookPage> with TickerProviderStateMixin {
         newFilter = 'all';
         break;
       case 1:
-        newFilter = 'active';
+        newFilter = 'pending';
         break;
       case 2:
-        newFilter = 'completed';
+        newFilter = 'active';
         break;
       case 3:
+        newFilter = 'completed';
+        break;
+      case 4:
         newFilter = 'cancelled';
         break;
       default:
@@ -130,15 +140,104 @@ class _BookPageState extends State<BookPage> with TickerProviderStateMixin {
     }
   }
 
+  /// **PERBAIKAN: Update booking dengan business logic validation**
   Future<void> _updateBookingStatus(Book booking, String newStatus) async {
     try {
-      final updatedBooking = booking.copyWith(status: newStatus);
-      await HiveService.updateBooking(updatedBooking);
+      // Gunakan method dari HiveService yang sudah ada validasi
+      await HiveService.updateBookingStatus(booking.id, newStatus);
       await _loadBookings();
-      _showSuccessSnackBar('Status booking berhasil diupdate');
+      _showSuccessSnackBar('Status booking berhasil diupdate menjadi ${_getStatusText(newStatus)}');
     } catch (e) {
       _showErrorSnackBar('Gagal mengupdate status: $e');
     }
+  }
+
+  /// **BARU: Method untuk proses pembayaran**
+  Future<void> _processPayment(Book booking) async {
+    final paymentResult = await _showPaymentDialog(booking);
+    if (paymentResult == null) return;
+
+    try {
+      await HiveService.updateBookingPayment(
+        booking.id, 
+        paymentResult['status'], 
+        paymentResult['amount']
+      );
+      await _loadBookings();
+      _showSuccessSnackBar('Pembayaran berhasil diproses');
+    } catch (e) {
+      _showErrorSnackBar('Gagal memproses pembayaran: $e');
+    }
+  }
+
+  /// **BARU: Dialog untuk pilihan pembayaran**
+  Future<Map<String, dynamic>?> _showPaymentDialog(Book booking) async {
+    String paymentType = booking.paymentStatus;
+    double amount = booking.paidAmount;
+
+    return showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text('Pembayaran Booking ${booking.id}'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Total: ${booking.formattedTotalPrice}'),
+              Text('Sudah Dibayar: ${booking.formattedPaidAmount}'),
+              Text('Sisa: ${booking.formattedRemainingAmount}'),
+              const SizedBox(height: 16),
+              if (booking.canProcessPayment()) ...[
+                RadioListTile<String>(
+                  title: const Text('DP 50%'),
+                  subtitle: Text(booking.formatCurrencyPage(booking.totalPrice * 0.5)),
+                  value: 'dp',
+                  groupValue: paymentType,
+                  onChanged: (value) {
+                    setDialogState(() {
+                      paymentType = value!;
+                      amount = booking.totalPrice * 0.5;
+                    });
+                  },
+                ),
+                RadioListTile<String>(
+                  title: const Text('Bayar Lunas'),
+                  subtitle: Text(booking.formattedTotalPrice),
+                  value: 'paid',
+                  groupValue: paymentType,
+                  onChanged: (value) {
+                    setDialogState(() {
+                      paymentType = value!;
+                      amount = booking.totalPrice;
+                    });
+                  },
+                ),
+              ] else ...[
+                Text('Pembayaran tidak dapat diproses untuk booking dengan status ${booking.getStatusText()}'),
+              ],
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, null),
+              child: const Text('Batal'),
+            ),
+            if (booking.canProcessPayment())
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, {
+                  'status': paymentType,
+                  'amount': amount,
+                }),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.teal[800],
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Proses'),
+              ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _deleteBooking(Book booking) async {
@@ -183,7 +282,8 @@ class _BookPageState extends State<BookPage> with TickerProviderStateMixin {
                 children: [
                   Text('ID: ${booking.id}', style: const TextStyle(fontWeight: FontWeight.bold)),
                   Text('Mobil: ${booking.carName}'),
-                  Text('Pemesan: ${booking.userName}'),
+                  Text('Status: ${booking.getStatusText()}'),
+                  Text('Pembayaran: ${booking.getPaymentStatusText()}'),
                 ],
               ),
             ),
@@ -246,6 +346,23 @@ class _BookPageState extends State<BookPage> with TickerProviderStateMixin {
     );
   }
 
+  String _getStatusText(String status) {
+    switch (status) {
+      case 'pending':
+        return 'Menunggu Konfirmasi';
+      case 'confirmed':
+        return 'Dikonfirmasi';
+      case 'active':
+        return 'Aktif';
+      case 'completed':
+        return 'Selesai';
+      case 'cancelled':
+        return 'Dibatalkan';
+      default:
+        return status;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -295,12 +412,12 @@ class _BookPageState extends State<BookPage> with TickerProviderStateMixin {
                     ),
                   ),
                   const SizedBox(width: 16),
-                  const Expanded(
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'Daftar Booking',
+                        const Text(
+                          'Booking Saya',
                           style: TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
@@ -308,8 +425,8 @@ class _BookPageState extends State<BookPage> with TickerProviderStateMixin {
                           ),
                         ),
                         Text(
-                          'Kelola semua transaksi rental',
-                          style: TextStyle(
+                          'User ID: ${widget.currentUserId}',
+                          style: const TextStyle(
                             fontSize: 14,
                             color: Colors.white70,
                             fontWeight: FontWeight.w500,
@@ -334,6 +451,7 @@ class _BookPageState extends State<BookPage> with TickerProviderStateMixin {
               indicatorColor: Colors.white,
               indicatorWeight: 3,
               indicatorSize: TabBarIndicatorSize.tab,
+              isScrollable: true,
               tabs: const [
                 Tab(
                   child: Column(
@@ -342,6 +460,16 @@ class _BookPageState extends State<BookPage> with TickerProviderStateMixin {
                       Icon(Icons.list_alt_rounded, size: 22),
                       SizedBox(height: 4),
                       Text('Semua', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                ),
+                Tab(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.pending_actions_rounded, size: 22),
+                      SizedBox(height: 4),
+                      Text('Pending', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
                     ],
                   ),
                 ),
@@ -446,7 +574,7 @@ class _BookPageState extends State<BookPage> with TickerProviderStateMixin {
             ),
             const SizedBox(height: 20),
             Text(
-              'Memuat daftar booking...',
+              'Memuat booking Anda...',
               style: TextStyle(
                 fontSize: 16,
                 color: Colors.grey[700],
@@ -464,6 +592,10 @@ class _BookPageState extends State<BookPage> with TickerProviderStateMixin {
     IconData emptyIcon;
     
     switch (selectedFilter) {
+      case 'pending':
+        emptyMessage = 'Tidak ada booking yang menunggu konfirmasi';
+        emptyIcon = Icons.pending_actions_rounded;
+        break;
       case 'active':
         emptyMessage = 'Tidak ada booking aktif';
         emptyIcon = Icons.hourglass_empty_rounded;
@@ -477,7 +609,7 @@ class _BookPageState extends State<BookPage> with TickerProviderStateMixin {
         emptyIcon = Icons.cancel_outlined;
         break;
       default:
-        emptyMessage = 'Belum ada data booking';
+        emptyMessage = 'Anda belum memiliki booking';
         emptyIcon = Icons.list_alt_rounded;
     }
 
@@ -525,6 +657,7 @@ class _BookPageState extends State<BookPage> with TickerProviderStateMixin {
                   fontWeight: FontWeight.bold,
                   color: Colors.grey[800],
                 ),
+                textAlign: TextAlign.center,
               ),
               const SizedBox(height: 8),
               Text(
@@ -542,32 +675,8 @@ class _BookPageState extends State<BookPage> with TickerProviderStateMixin {
   }
 
   Widget _buildBookingCard(Book booking) {
-    Color statusColor;
-    Color statusBackgroundColor;
-    IconData statusIcon;
+    final availableActions = booking.getAvailableActions();
     
-    switch (booking.status) {
-      case 'active':
-        statusColor = Colors.orange[700]!;
-        statusBackgroundColor = Colors.orange[50]!;
-        statusIcon = Icons.hourglass_empty_rounded;
-        break;
-      case 'completed':
-        statusColor = Colors.green[700]!;
-        statusBackgroundColor = Colors.green[50]!;
-        statusIcon = Icons.check_circle_rounded;
-        break;
-      case 'cancelled':
-        statusColor = Colors.red[700]!;
-        statusBackgroundColor = Colors.red[50]!;
-        statusIcon = Icons.cancel_rounded;
-        break;
-      default:
-        statusColor = Colors.grey[700]!;
-        statusBackgroundColor = Colors.grey[50]!;
-        statusIcon = Icons.help_outline_rounded;
-    }
-
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
@@ -617,92 +726,129 @@ class _BookPageState extends State<BookPage> with TickerProviderStateMixin {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                             decoration: BoxDecoration(
-                              color: statusBackgroundColor,
+                              color: booking.getStatusColor().withOpacity(0.1),
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(statusIcon, size: 14, color: statusColor),
-                                const SizedBox(width: 4),
-                                Text(
-                                  booking.status.toUpperCase(),
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                    color: statusColor,
-                                  ),
-                                ),
-                              ],
+                            child: Text(
+                              booking.getStatusText(),
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: booking.getStatusColor(),
+                              ),
                             ),
                           ),
                         ],
                       ),
                     ),
-                    PopupMenuButton<String>(
-                      icon: Icon(Icons.more_vert, color: Colors.grey[600]),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      onSelected: (value) {
-                        switch (value) {
-                          case 'detail':
-                            _navigateToDetail(booking);
-                            break;
-                          case 'complete':
-                            _updateBookingStatus(booking, 'completed');
-                            break;
-                          case 'cancel':
-                            _updateBookingStatus(booking, 'cancelled');
-                            break;
-                          case 'delete':
-                            _deleteBooking(booking);
-                            break;
-                        }
-                      },
-                      itemBuilder: (context) => [
-                        const PopupMenuItem(
-                          value: 'detail',
-                          child: Row(
-                            children: [
-                              Icon(Icons.info_outline, size: 18),
-                              SizedBox(width: 8),
-                              Text('Lihat Detail'),
-                            ],
-                          ),
-                        ),
-                        if (booking.isActive) ...[
+                    if (availableActions.isNotEmpty)
+                      PopupMenuButton<String>(
+                        icon: Icon(Icons.more_vert, color: Colors.grey[600]),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        onSelected: (value) {
+                          switch (value) {
+                            case 'detail':
+                              _navigateToDetail(booking);
+                              break;
+                            case 'confirm':
+                              _updateBookingStatus(booking, 'confirmed');
+                              break;
+                            case 'activate':
+                              _updateBookingStatus(booking, 'active');
+                              break;
+                            case 'complete':
+                              _updateBookingStatus(booking, 'completed');
+                              break;
+                            case 'cancel':
+                              _updateBookingStatus(booking, 'cancelled');
+                              break;
+                            case 'payment':
+                              _processPayment(booking);
+                              break;
+                            case 'delete':
+                              _deleteBooking(booking);
+                              break;
+                          }
+                        },
+                        itemBuilder: (context) => [
                           const PopupMenuItem(
-                            value: 'complete',
+                            value: 'detail',
                             child: Row(
                               children: [
-                                Icon(Icons.check, size: 18, color: Colors.green),
+                                Icon(Icons.info_outline, size: 18),
                                 SizedBox(width: 8),
-                                Text('Selesaikan'),
+                                Text('Lihat Detail'),
                               ],
                             ),
                           ),
-                          const PopupMenuItem(
-                            value: 'cancel',
-                            child: Row(
-                              children: [
-                                Icon(Icons.close, size: 18, color: Colors.orange),
-                                SizedBox(width: 8),
-                                Text('Batalkan'),
-                              ],
+                          if (availableActions.contains('confirm'))
+                            const PopupMenuItem(
+                              value: 'confirm',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.check_circle, size: 18, color: Colors.blue),
+                                  SizedBox(width: 8),
+                                  Text('Konfirmasi'),
+                                ],
+                              ),
                             ),
-                          ),
+                          if (availableActions.contains('activate'))
+                            const PopupMenuItem(
+                              value: 'activate',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.play_arrow, size: 18, color: Colors.green),
+                                  SizedBox(width: 8),
+                                  Text('Mulai Rental'),
+                                ],
+                              ),
+                            ),
+                          if (availableActions.contains('complete'))
+                            const PopupMenuItem(
+                              value: 'complete',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.done_all, size: 18, color: Colors.teal),
+                                  SizedBox(width: 8),
+                                  Text('Selesaikan'),
+                                ],
+                              ),
+                            ),
+                          if (availableActions.contains('cancel'))
+                            const PopupMenuItem(
+                              value: 'cancel',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.close, size: 18, color: Colors.orange),
+                                  SizedBox(width: 8),
+                                  Text('Batalkan'),
+                                ],
+                              ),
+                            ),
+                          if (availableActions.contains('payment'))
+                            const PopupMenuItem(
+                              value: 'payment',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.payment, size: 18, color: Colors.purple),
+                                  SizedBox(width: 8),
+                                  Text('Bayar'),
+                                ],
+                              ),
+                            ),
+                          if (booking.canBeCancelled() || booking.isCancelled)
+                            const PopupMenuItem(
+                              value: 'delete',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.delete, size: 18, color: Colors.red),
+                                  SizedBox(width: 8),
+                                  Text('Hapus'),
+                                ],
+                              ),
+                            ),
                         ],
-                        const PopupMenuItem(
-                          value: 'delete',
-                          child: Row(
-                            children: [
-                              Icon(Icons.delete, size: 18, color: Colors.red),
-                              SizedBox(width: 8),
-                              Text('Hapus'),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
                   ],
                 ),
                 
@@ -757,25 +903,43 @@ class _BookPageState extends State<BookPage> with TickerProviderStateMixin {
                 
                 const SizedBox(height: 12),
                 
-                // Customer and Rental Info
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildInfoChip(
-                        Icons.person_rounded,
-                        booking.userName,
-                        Colors.blue,
+                // Payment Status
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: booking.getPaymentStatusColor().withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: booking.getPaymentStatusColor().withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.payment_rounded,
+                        size: 16,
+                        color: booking.getPaymentStatusColor(),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _buildInfoChip(
-                        Icons.access_time_rounded,
-                        '${booking.rentalDays} hari',
-                        Colors.green,
+                      const SizedBox(width: 8),
+                      Text(
+                        booking.getPaymentStatusText(),
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: booking.getPaymentStatusColor(),
+                        ),
                       ),
-                    ),
-                  ],
+                      if (booking.remainingAmount > 0) ...[
+                        const Spacer(),
+                        Text(
+                          'Sisa: ${booking.formattedRemainingAmount}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.red[600],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
                 
                 const SizedBox(height: 8),
@@ -790,30 +954,18 @@ class _BookPageState extends State<BookPage> with TickerProviderStateMixin {
                         Colors.orange,
                       ),
                     ),
+                    const SizedBox(width: 8),
+                    _buildInfoChip(
+                      Icons.access_time_rounded,
+                      '${booking.rentalDays} hari',
+                      Colors.green,
+                    ),
                     if (booking.needDriver) ...[
                       const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.purple[50],
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.purple[200]!),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.person_pin_rounded, size: 14, color: Colors.purple[700]),
-                            const SizedBox(width: 4),
-                            Text(
-                              'Sopir',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.purple[700],
-                              ),
-                            ),
-                          ],
-                        ),
+                      _buildInfoChip(
+                        Icons.person_pin_rounded,
+                        'Sopir',
+                        Colors.purple,
                       ),
                     ],
                   ],
@@ -836,12 +988,12 @@ class _BookPageState extends State<BookPage> with TickerProviderStateMixin {
                             color: Colors.teal[800],
                           ),
                         ),
-                        if (booking.remainingAmount > 0)
+                        if (booking.paidAmount > 0)
                           Text(
-                            'Sisa: ${booking.formattedRemainingAmount}',
+                            'Dibayar: ${booking.formattedPaidAmount}',
                             style: TextStyle(
                               fontSize: 12,
-                              color: Colors.red[600],
+                              color: Colors.green[600],
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -894,19 +1046,27 @@ class _BookPageState extends State<BookPage> with TickerProviderStateMixin {
         children: [
           Icon(icon, size: 14, color: color),
           const SizedBox(width: 4),
-          Expanded(
-            child: Text(
-              text,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: color,
-              ),
-              overflow: TextOverflow.ellipsis,
+          Text(
+            text,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: color,
             ),
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
     );
+  }
+}
+
+// Extension untuk format currency di Book model
+extension BookExtension on Book {
+  String formatCurrencyPage(double amount) {
+    return 'Rp ${amount.toStringAsFixed(0).replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (Match m) => '${m[1]}.',
+    )}';
   }
 }

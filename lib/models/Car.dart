@@ -40,4 +40,35 @@ class Car {
       image: json['image'],
     );
   }
+
+  // ✅ TAMBAHAN: Method toJson() yang diperlukan
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'nama': nama,
+      'merk': merk,
+      'plat': plat,
+      'harga': harga,
+      'kapasitas_penumpang': kapasitas_penumpang,
+      'year': year,
+      'deskripsi': deskripsi,
+      'image': image,
+    };
+  }
+
+  // ✅ BONUS: Method toString() untuk debugging
+  @override
+  String toString() {
+    return 'Car(id: $id, nama: $nama, merk: $merk, year: $year)';
+  }
+
+  // ✅ BONUS: Method equality untuk comparison
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is Car && other.id == id;
+  }
+
+  @override
+  int get hashCode => id.hashCode;
 }

@@ -1,9 +1,11 @@
-// detailPage.dart
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
+
 import '../models/Car.dart';
 import '../services/FavoriteService.dart';
+import '../services/UserService.dart'; // pastikan impor UserService kalau pakai
 import 'bookList.dart';
 
 class DetailPage extends StatefulWidget {
@@ -17,19 +19,43 @@ class DetailPage extends StatefulWidget {
 
 class _DetailPageState extends State<DetailPage> with TickerProviderStateMixin {
   Car? car;
+  String? currentUserId;
   bool isLoading = true;
   bool isFavorited = false;
+  bool _isTogglingFavorite = false;
   String? errorMessage;
+
   late AnimationController _favoriteAnimationController;
   late AnimationController _imageAnimationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
 
+  late SharedPreferences _prefs; // Tambahkan SharedPreferences
+
   @override
   void initState() {
     super.initState();
-    _initAnimations();
+    _loadCurrentUserId(); // Panggil method untuk load ID terlebih dahulu
     _initDetail();
+    _initAnimations();
+  }
+
+  Future<void> _loadCurrentUserId() async {
+    try {
+      _prefs = await SharedPreferences.getInstance();
+      final savedUserId = _prefs.getString('userId') ?? '';
+
+      // Alternatif: kalau kamu menyimpan ID di UserService
+      final userIdFromService = UserService.getCurrentUserId();
+
+      setState(() {
+        currentUserId = userIdFromService ?? savedUserId;
+      });
+
+      debugPrint('🔑 currentUserId di DetailPage: $currentUserId');
+    } catch (e) {
+      debugPrint('❌ Gagal memuat currentUserId: $e');
+    }
   }
 
   void _initAnimations() {
@@ -37,7 +63,7 @@ class _DetailPageState extends State<DetailPage> with TickerProviderStateMixin {
       duration: const Duration(milliseconds: 300),
       vsync: this,
     );
-    
+
     _imageAnimationController = AnimationController(
       duration: const Duration(milliseconds: 800),
       vsync: this,
@@ -60,13 +86,6 @@ class _DetailPageState extends State<DetailPage> with TickerProviderStateMixin {
     ));
   }
 
-  @override
-  void dispose() {
-    _favoriteAnimationController.dispose();
-    _imageAnimationController.dispose();
-    super.dispose();
-  }
-
   Future<void> _initDetail() async {
     await _fetchCarDetail();
     await _loadFavoriteStatus();
@@ -79,18 +98,20 @@ class _DetailPageState extends State<DetailPage> with TickerProviderStateMixin {
           'https://6839447d6561b8d882af9534.mockapi.io/api/sewa_mobil/mobil/${widget.carId}'));
 
       if (response.statusCode == 200) {
-        final Map<String, dynamic> json = jsonDecode(response.body);
+        final Map<String, dynamic> jsonRes = jsonDecode(response.body);
         setState(() {
-          car = Car.fromJson(json);
+          car = Car.fromJson(jsonRes);
           isLoading = false;
         });
+        debugPrint('✅ Car detail loaded: ${car?.nama}');
       } else {
         setState(() {
-          errorMessage = 'Gagal memuat detail mobil';
+          errorMessage = 'Gagal memuat detail mobil (${response.statusCode})';
           isLoading = false;
         });
       }
     } catch (e) {
+      debugPrint('❌ Error fetching car detail: $e');
       setState(() {
         errorMessage = 'Terjadi kesalahan: $e';
         isLoading = false;
@@ -100,44 +121,81 @@ class _DetailPageState extends State<DetailPage> with TickerProviderStateMixin {
 
   Future<void> _loadFavoriteStatus() async {
     try {
+      // Kalau belum ada userId, langsung skip
+      if (currentUserId == null || currentUserId!.isEmpty) {
+        setState(() {
+          isFavorited = false;
+        });
+        return;
+      }
+
+      if (!FavoriteService.isUserLoggedIn()) {
+        setState(() {
+          isFavorited = false;
+        });
+        return;
+      }
+
       final isFav = await FavoriteService.isFavorite(widget.carId);
       setState(() {
         isFavorited = isFav;
       });
+      debugPrint('✅ Favorite status loaded: $isFav');
     } catch (e) {
-      print('Error loading favorite status: $e');
+      debugPrint('❌ Error loading favorite status: $e');
+      setState(() {
+        isFavorited = false;
+      });
     }
   }
 
   Future<void> _toggleFavorite() async {
-    if (car == null) return;
+    if (car == null || _isTogglingFavorite) return;
+
+    if (currentUserId == null || currentUserId!.isEmpty || !FavoriteService.isUserLoggedIn()) {
+      _showSnackBar("Silakan login terlebih dahulu", Colors.red, Icons.login);
+      return;
+    }
+
+    setState(() {
+      _isTogglingFavorite = true;
+    });
 
     try {
+      final currentStatus = await FavoriteService.isFavorite(widget.carId);
       final success = await FavoriteService.toggleFavorite(car!);
-      
+
       if (success) {
         final newStatus = await FavoriteService.isFavorite(widget.carId);
         setState(() {
           isFavorited = newStatus;
         });
 
-        // Animate favorite button
         _favoriteAnimationController.forward().then((_) {
           _favoriteAnimationController.reverse();
         });
 
-        // Show feedback
         if (isFavorited) {
           _showSnackBar("✨ Ditambahkan ke favorit", Colors.green, Icons.favorite);
         } else {
           _showSnackBar("💔 Dihapus dari favorit", Colors.orange, Icons.favorite_border);
         }
+
+        debugPrint('✅ Favorite toggled: $currentStatus -> $newStatus');
       } else {
-        _showSnackBar("Terjadi kesalahan", Colors.red, Icons.error);
+        _showSnackBar("Gagal mengubah status favorit", Colors.red, Icons.error);
       }
     } catch (e) {
-      print('Error toggling favorite: $e');
-      _showSnackBar("Terjadi kesalahan", Colors.red, Icons.error);
+      debugPrint('❌ Error toggling favorite: $e');
+      if (e.toString().contains('User tidak login')) {
+        _showSnackBar("Silakan login terlebih dahulu", Colors.red, Icons.login);
+      } else {
+        _showSnackBar("Terjadi kesalahan: ${e.toString()}", Colors.red, Icons.error);
+      }
+    } finally {
+      setState(() {
+        _isTogglingFavorite = false;
+      });
     }
   }
 
@@ -149,7 +207,12 @@ class _DetailPageState extends State<DetailPage> with TickerProviderStateMixin {
             children: [
               Icon(icon, color: Colors.white, size: 20),
               const SizedBox(width: 8),
-              Text(message, style: const TextStyle(fontWeight: FontWeight.w500)),
+              Expanded(
+                child: Text(
+                  message,
+                  style: const TextStyle(fontWeight: FontWeight.w500),
+                ),
+              ),
             ],
           ),
           backgroundColor: color,
@@ -160,6 +223,13 @@ class _DetailPageState extends State<DetailPage> with TickerProviderStateMixin {
         ),
       );
     }
+  }
+
+  @override
+  void dispose() {
+    _favoriteAnimationController.dispose();
+    _imageAnimationController.dispose();
+    super.dispose();
   }
 
   @override
@@ -176,14 +246,8 @@ class _DetailPageState extends State<DetailPage> with TickerProviderStateMixin {
       return _buildLoadingState();
     }
 
-    if (errorMessage != null) {
+    if (errorMessage != null || car == null) {
       return _buildErrorState();
-    }
-
-    if (car == null) {
-      return const Center(
-        child: Text('Data mobil tidak ditemukan'),
-      );
     }
 
     return CustomScrollView(
@@ -300,7 +364,7 @@ class _DetailPageState extends State<DetailPage> with TickerProviderStateMixin {
               ),
               const SizedBox(height: 8),
               Text(
-                errorMessage!,
+                errorMessage ?? 'Data mobil tidak ditemukan',
                 style: TextStyle(
                   fontSize: 16,
                   color: Colors.grey[600],
@@ -314,7 +378,7 @@ class _DetailPageState extends State<DetailPage> with TickerProviderStateMixin {
                     isLoading = true;
                     errorMessage = null;
                   });
-                  _fetchCarDetail();
+                  _initDetail();
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.teal[800],
@@ -365,14 +429,33 @@ class _DetailPageState extends State<DetailPage> with TickerProviderStateMixin {
                 curve: Curves.elasticOut,
               ),
             ),
-            child: IconButton(
-              icon: Icon(
-                isFavorited ? Icons.favorite : Icons.favorite_border,
-                color: isFavorited ? Colors.red : Colors.grey[600],
-                size: 28,
-              ),
-              onPressed: _toggleFavorite,
-              tooltip: isFavorited ? "Hapus dari favorit" : "Tambah ke favorit",
+            child: Stack(
+              children: [
+                IconButton(
+                  icon: Icon(
+                    isFavorited ? Icons.favorite : Icons.favorite_border,
+                    color: isFavorited ? Colors.red : Colors.grey[600],
+                    size: 28,
+                  ),
+                  onPressed: _isTogglingFavorite ? null : _toggleFavorite,
+                  tooltip: isFavorited ? "Hapus dari favorit" : "Tambah ke favorit",
+                ),
+                if (_isTogglingFavorite)
+                  Positioned.fill(
+                    child: Center(
+                      child: SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Colors.grey[600]!,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ),
         ),
@@ -701,10 +784,14 @@ class _DetailPageState extends State<DetailPage> with TickerProviderStateMixin {
       child: SafeArea(
         child: ElevatedButton(
           onPressed: () {
+            if (currentUserId == null || currentUserId!.isEmpty) {
+              _showSnackBar("Silakan login terlebih dahulu", Colors.red, Icons.login);
+              return;
+            }
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => BookListPage(carId: car!.id),
+                builder: (context) => BookListPage(currentUserId: currentUserId!, carId: car!.id),
               ),
             );
           },

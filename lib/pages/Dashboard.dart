@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:project_133_165/services/UserService.dart';
 import 'bookList.dart';
 import 'helpPage.dart';
 import 'Favorite.dart';
@@ -24,13 +25,8 @@ class _DashboardState extends State<Dashboard> with TickerProviderStateMixin {
   int _selectedIndex = 2;
   late AnimationController _animationController;
 
-  final List<Widget> _pages = [
-    FavoritesPage(),
-    EditUserPage(),
-    const SizedBox(),
-    BookPage(),
-    HelpPage(),
-  ];
+  // **PERBAIKAN: Pages dengan currentUserId support**
+  List<Widget> _pages = [];
 
   void _onItemTapped(int index) {
     setState(() {
@@ -40,111 +36,274 @@ class _DashboardState extends State<Dashboard> with TickerProviderStateMixin {
 
   late SharedPreferences logindata;
   String username = "";
+  String? currentUserId; // **PERBAIKAN: Add currentUserId**
   TextEditingController _searchController = TextEditingController();
   List<Car> filteredCars = [];
+  List<Car> allCars = [];
   bool isSearching = false;
-  Set<String> favoriteCars = {}; // Set untuk menyimpan ID mobil favorit
+  Set<String> favoriteCars = {};
+  bool _isLoadingFavorites = false;
+  bool _isLoadingCars = true;
+  String? _carsError;
+
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
-    _loadUsername();
-    _loadFavorites();
+    _initDashboard();
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 300),
       vsync: this,
     );
   }
 
+  Future<void> _initDashboard() async {
+    await _loadUsername();
+    await _initializePages(); // **PERBAIKAN: Initialize pages setelah currentUserId ready**
+    await _loadCars();
+    await _loadFavorites();
+  }
+
   @override
   void dispose() {
     _animationController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
   Future<void> _loadUsername() async {
-    logindata = await SharedPreferences.getInstance();
+    try {
+      logindata = await SharedPreferences.getInstance();
+      final savedUsername = logindata.getString('username') ?? '';
+      
+      // **PERBAIKAN: Double check dengan UserService dan set currentUserId**
+      final currentUsername = UserService.getCurrentUsername();
+      final userId = UserService.getCurrentUserId();
+      
+      setState(() {
+        username = currentUsername ?? savedUsername;
+        currentUserId = userId ?? savedUsername; // **PERBAIKAN: Set currentUserId**
+      });
+      
+      print('👤 Dashboard loaded for user: $username (ID: $currentUserId)');
+    } catch (e) {
+      print('❌ Error loading username: $e');
+    }
+  }
+
+  /// **PERBAIKAN: Initialize pages dengan currentUserId**
+  Future<void> _initializePages() async {
+    if (currentUserId == null) {
+      print('⚠️ CurrentUserId is null, cannot initialize pages');
+      return;
+    }
+
     setState(() {
-      username = logindata.getString('username') ?? '';
+      _pages = [
+        FavoritesPage(),
+        EditUserPage(),
+        const SizedBox(), // Home content (dashboard)
+        BookPage(currentUserId: currentUserId!), 
+        HelpPage(),
+      ];
     });
+    
+    print('✅ Pages initialized with currentUserId: $currentUserId');
+  }
+
+  Future<void> _loadCars() async {
+    setState(() {
+      _isLoadingCars = true;
+      _carsError = null;
+    });
+
+    try {
+      final cars = await _fetchCars();
+      setState(() {
+        allCars = cars;
+        _isLoadingCars = false;
+      });
+    } catch (e) {
+      setState(() {
+        _carsError = e.toString();
+        _isLoadingCars = false;
+      });
+    }
   }
 
   Future<void> _loadFavorites() async {
-    final favoriteIds = await FavoriteService.getFavoriteIds();
+    if (_isLoadingFavorites) return;
+    
     setState(() {
-      favoriteCars = favoriteIds;
+      _isLoadingFavorites = true;
     });
+
+    try {
+      // Cek apakah user sudah login
+      if (!FavoriteService.isUserLoggedIn()) {
+        print('ℹ️ User not logged in, skipping favorites load');
+        setState(() {
+          favoriteCars = {};
+          _isLoadingFavorites = false;
+        });
+        return;
+      }
+
+      final favoriteIds = await FavoriteService.getFavoriteIds();
+      setState(() {
+        favoriteCars = favoriteIds;
+        _isLoadingFavorites = false;
+      });
+      
+      print('✅ Loaded ${favoriteIds.length} favorites for dashboard');
+    } catch (e) {
+      print('❌ Error loading favorites: $e');
+      setState(() {
+        favoriteCars = {};
+        _isLoadingFavorites = false;
+      });
+    }
   }
 
   Future<void> _toggleFavorite(Car car) async {
-    // Show loading state
-    setState(() {
-      if (favoriteCars.contains(car.id)) {
-        favoriteCars.remove(car.id);
-      } else {
-        favoriteCars.add(car.id);
-      }
-    });
-    
-    // Perform the actual toggle operation
-    final success = await FavoriteService.toggleFavorite(car);
-    
-    if (!success) {
-      // Revert the change if it failed
+    // Cek apakah user sudah login
+    if (!FavoriteService.isUserLoggedIn()) {
+      _showSnackBar(
+        'Silakan login terlebih dahulu',
+        Colors.red[600]!,
+        Icons.login,
+        action: SnackBarAction(
+          label: 'Login',
+          textColor: Colors.white,
+          onPressed: () => _logout(),
+        ),
+      );
+      return;
+    }
+
+    // Get current favorite status
+    bool wasIsFavorite;
+    try {
+      wasIsFavorite = await FavoriteService.isFavorite(car.id);
+    } catch (e) {
+      print('❌ Error checking favorite status: $e');
+      _showSnackBar(
+        'Terjadi kesalahan saat mengecek status favorit',
+        Colors.red,
+        Icons.error,
+      );
+      return;
+    }
+
+    // Optimistic update
+    if (mounted) {
       setState(() {
-        if (favoriteCars.contains(car.id)) {
+        if (wasIsFavorite) {
           favoriteCars.remove(car.id);
         } else {
           favoriteCars.add(car.id);
         }
       });
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Gagal mengubah status favorit'),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-      return;
     }
     
-    // Show success feedback
-    final isFavorite = favoriteCars.contains(car.id);
+    try {
+      // Perform the actual toggle operation
+      final success = await FavoriteService.toggleFavorite(car);
+      
+      if (!success) {
+        // Revert the change if it failed
+        if (mounted) {
+          setState(() {
+            if (wasIsFavorite) {
+              favoriteCars.add(car.id);
+            } else {
+              favoriteCars.remove(car.id);
+            }
+          });
+        }
+        
+        _showSnackBar(
+          'Gagal mengubah status favorit',
+          Colors.red,
+          Icons.error,
+        );
+        return;
+      }
+      
+      // Double check the final status from service
+      final finalIsFavorite = await FavoriteService.isFavorite(car.id);
+      
+      // Update UI to match actual service state
+      if (mounted) {
+        setState(() {
+          if (finalIsFavorite) {
+            favoriteCars.add(car.id);
+          } else {
+            favoriteCars.remove(car.id);
+          }
+        });
+      }
+      
+      // Show success feedback
+      _showSnackBar(
+        finalIsFavorite 
+          ? '${car.nama} ditambahkan ke favorit' 
+          : '${car.nama} dihapus dari favorit',
+        finalIsFavorite ? Colors.teal[700]! : Colors.orange[700]!,
+        finalIsFavorite ? Icons.favorite : Icons.favorite_border,
+        action: SnackBarAction(
+          label: 'Lihat Favorit',
+          textColor: Colors.white,
+          onPressed: () {
+            setState(() {
+              _selectedIndex = 0;
+            });
+          },
+        ),
+      );
+      
+    } catch (e) {
+      print('❌ Error toggling favorite: $e');
+      
+      // Revert the optimistic update
+      if (mounted) {
+        setState(() {
+          if (wasIsFavorite) {
+            favoriteCars.add(car.id);
+          } else {
+            favoriteCars.remove(car.id);
+          }
+        });
+      }
+      
+      String errorMessage = 'Terjadi kesalahan';
+      if (e.toString().contains('User tidak login')) {
+        errorMessage = 'Silakan login terlebih dahulu';
+      }
+      
+      _showSnackBar(errorMessage, Colors.red, Icons.error);
+    }
+  }
+
+  void _showSnackBar(String message, Color color, IconData icon, {SnackBarAction? action}) {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Row(
             children: [
-              Icon(
-                isFavorite ? Icons.favorite : Icons.favorite_border,
-                color: Colors.white,
-                size: 20,
-              ),
+              Icon(icon, color: Colors.white, size: 20),
               const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  isFavorite 
-                    ? '${car.nama} ditambahkan ke favorit' 
-                    : '${car.nama} dihapus dari favorit'
-                ),
-              ),
+              Expanded(child: Text(message)),
             ],
           ),
-          backgroundColor: isFavorite ? Colors.teal[700] : Colors.orange[700],
+          backgroundColor: color,
           behavior: SnackBarBehavior.floating,
           duration: const Duration(seconds: 3),
-          action: SnackBarAction(
-            label: 'Lihat Favorit',
-            textColor: Colors.white,
-            onPressed: () {
-              setState(() {
-                _selectedIndex = 0; // Navigate to Favorites page
-              });
-            },
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
           ),
+          action: action,
         ),
       );
     }
@@ -170,16 +329,29 @@ class _DashboardState extends State<Dashboard> with TickerProviderStateMixin {
       return;
     }
 
-    final response = await http.get(Uri.parse(
-        'https://6839447d6561b8d882af9534.mockapi.io/api/sewa_mobil/mobil?search=$query'));
-    if (response.statusCode == 200) {
-      final List<dynamic> list = json.decode(response.body);
+    try {
+      final response = await http.get(Uri.parse(
+          'https://6839447d6561b8d882af9534.mockapi.io/api/sewa_mobil/mobil?search=$query'));
+      if (response.statusCode == 200) {
+        final List<dynamic> list = json.decode(response.body);
+        setState(() {
+          filteredCars = list.map((e) => Car.fromJson(e)).toList();
+          isSearching = true;
+        });
+      } else {
+        throw Exception('Gagal mencari mobil');
+      }
+    } catch (e) {
+      print('❌ Search error: $e');
+      // Fallback to local search
+      final searchLower = query.toLowerCase();
       setState(() {
-        filteredCars = list.map((e) => Car.fromJson(e)).toList();
+        filteredCars = allCars.where((car) {
+          return car.nama.toLowerCase().contains(searchLower) ||
+                 car.merk.toLowerCase().contains(searchLower);
+        }).toList();
         isSearching = true;
       });
-    } else {
-      throw Exception('Gagal mencari mobil');
     }
   }
 
@@ -187,23 +359,54 @@ class _DashboardState extends State<Dashboard> with TickerProviderStateMixin {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Logout'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.logout, color: Colors.red),
+            SizedBox(width: 8),
+            Text('Logout'),
+          ],
+        ),
         content: const Text('Yakin ingin logout?'),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Batal')),
-          TextButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Logout')),
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Logout'),
+          ),
         ],
       ),
     );
 
     if (confirm == true) {
-      await logindata.clear();
-      Navigator.pushReplacement(
-          context, MaterialPageRoute(builder: (_) => const LoginPage()));
+      try {
+        // Clear all data
+        await logindata.clear();
+        await UserService.clearCurrentUser();
+        
+        // Reset state
+        setState(() {
+          username = "";
+          currentUserId = null; // **PERBAIKAN: Clear currentUserId**
+          favoriteCars = {};
+        });
+        
+        print('✅ Logout successful');
+        
+        Navigator.pushReplacement(
+          context, 
+          MaterialPageRoute(builder: (_) => const LoginPage()),
+        );
+      } catch (e) {
+        print('❌ Error during logout: $e');
+      }
     }
   }
 
@@ -214,21 +417,89 @@ class _DashboardState extends State<Dashboard> with TickerProviderStateMixin {
         )}';
   }
 
+  /// **PERBAIKAN: Navigate to booking dengan currentUserId**
   void _navigateToBooking(Car car) {
+    if (currentUserId == null) {
+      _showSnackBar(
+        'Silakan login terlebih dahulu',
+        Colors.red[600]!,
+        Icons.login,
+        action: SnackBarAction(
+          label: 'Login',
+          textColor: Colors.white,
+          onPressed: () => _logout(),
+        ),
+      );
+      return;
+    }
+
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => BookListPage(carId: car.id, car: car),
+        builder: (context) => BookListPage(
+          carId: car.id, 
+          car: car,
+          currentUserId: currentUserId!, // **PERBAIKAN: Pass currentUserId**
+        ),
       ),
     );
   }
 
+  Future<void> _refreshData() async {
+    final scrollPosition = _scrollController.hasClients ? _scrollController.offset : 0.0;
+    
+    await Future.wait([
+      _loadCars(),
+      _loadFavorites(),
+    ]);
+    
+    // Restore scroll position setelah refresh
+    if (_scrollController.hasClients && scrollPosition > 0) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scrollController.hasClients) {
+          _scrollController.animateTo(
+            scrollPosition,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+          );
+        }
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    // **PERBAIKAN: Show loading jika currentUserId belum ready**
+    if (currentUserId == null || _pages.isEmpty) {
+      return Scaffold(
+        backgroundColor: Colors.grey[50],
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(color: Colors.teal[800]),
+              const SizedBox(height: 16),
+              Text(
+                'Memuat dashboard...',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey[700],
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: Text('Hai, $username', style: const TextStyle(color: Colors.white)),
+        title: Text(
+          username.isNotEmpty ? 'Hai, $username' : 'Dashboard', 
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+        ),
         backgroundColor: Colors.teal[800],
         centerTitle: true,
         elevation: 0,
@@ -236,84 +507,116 @@ class _DashboardState extends State<Dashboard> with TickerProviderStateMixin {
           icon: const Icon(Icons.logout),
           onPressed: _logout,
           color: Colors.white,
+          tooltip: 'Logout',
         ),
+        actions: [
+          if (_isLoadingFavorites)
+            const Padding(
+              padding: EdgeInsets.only(right: 16.0),
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              ),
+            ),
+          // **PERBAIKAN: Show current user ID in debug mode (optional)**
+          if (currentUserId != null)
+            Padding(
+              padding: const EdgeInsets.only(right: 8.0),
+              child: Center(
+                child: Text(
+                  'ID: $currentUserId',
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
       body: _selectedIndex == 2
           ? Column(
               children: [
                 _buildSearchSection(),
                 Expanded(
-                  child: FutureBuilder<List<Car>>(
-                    future: _fetchCars(),
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(
-                          child: CircularProgressIndicator(
-                            color: Colors.teal,
-                          ),
-                        );
-                      }
-
-                      if (snapshot.hasError) {
-                        return Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.error_outline, size: 64, color: Colors.grey[400]),
-                              const SizedBox(height: 16),
-                              Text(
-                                'Terjadi kesalahan: ${snapshot.error}',
-                                style: TextStyle(color: Colors.grey[600]),
-                                textAlign: TextAlign.center,
-                              ),
-                            ],
-                          ),
-                        );
-                      }
-
-                      final cars = isSearching ? filteredCars : snapshot.data!;
-                      
-                      if (cars.isEmpty) {
-                        return Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.directions_car, size: 64, color: Colors.grey[400]),
-                              const SizedBox(height: 16),
-                              Text(
-                                isSearching ? 'Mobil tidak ditemukan' : 'Tidak ada mobil tersedia',
-                                style: TextStyle(color: Colors.grey[600]),
-                              ),
-                            ],
-                          ),
-                        );
-                      }
-
-                      return RefreshIndicator(
-                        onRefresh: () async {
-                          await _loadFavorites(); // Reload favorites when refreshing
-                          setState(() {});
-                        },
-                        child: ListView.builder(
-                          padding: const EdgeInsets.all(16),
-                          itemCount: cars.length,
-                          itemBuilder: (context, index) {
-                            return AnimatedContainer(
-                              duration: Duration(milliseconds: 300 + (index * 100)),
-                              child: _buildModernCarCard(cars[index], index),
-                            );
-                          },
-                        ),
-                      );
-                    },
-                  ),
+                  child: _buildCarsList(),
                 ),
               ],
             )
-          : _pages[_selectedIndex],
+          : _pages.isNotEmpty && _selectedIndex < _pages.length 
+              ? _pages[_selectedIndex]
+              : const Center(child: Text('Halaman tidak tersedia')),
       bottomNavigationBar: BottomNavBar(
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
+      ),
+    );
+  }
+
+  Widget _buildCarsList() {
+    if (_isLoadingCars) {
+      return const Center(
+        child: CircularProgressIndicator(color: Colors.teal),
+      );
+    }
+
+    if (_carsError != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.error_outline, size: 64, color: Colors.grey[400]),
+            const SizedBox(height: 16),
+            Text(
+              'Terjadi kesalahan: $_carsError',
+              style: TextStyle(color: Colors.grey[600]),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: _loadCars,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Coba Lagi'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final cars = isSearching ? filteredCars : allCars;
+    
+    if (cars.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.directions_car, size: 64, color: Colors.grey[400]),
+            const SizedBox(height: 16),
+            Text(
+              isSearching ? 'Mobil tidak ditemukan' : 'Tidak ada mobil tersedia',
+              style: TextStyle(color: Colors.grey[600]),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _refreshData,
+      child: ListView.builder(
+        controller: _scrollController,
+        padding: const EdgeInsets.all(16),
+        itemCount: cars.length,
+        itemBuilder: (context, index) {
+          return AnimatedContainer(
+            duration: Duration(milliseconds: 300 + (index * 100)),
+            child: _buildModernCarCard(cars[index], index),
+          );
+        },
       ),
     );
   }
@@ -465,20 +768,24 @@ class _DashboardState extends State<Dashboard> with TickerProviderStateMixin {
                         ),
                       ],
                     ),
-                    child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 200),
-                      child: IconButton(
-                        key: ValueKey(favoriteCars.contains(car.id)),
-                        icon: Icon(
+                    child: IconButton(
+                      key: ValueKey('favorite_${car.id}_${favoriteCars.contains(car.id)}'),
+                      icon: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 200),
+                        child: Icon(
                           favoriteCars.contains(car.id) 
                             ? Icons.favorite 
                             : Icons.favorite_border,
+                          key: ValueKey(favoriteCars.contains(car.id)),
+                          color: favoriteCars.contains(car.id) 
+                            ? Colors.red[500] 
+                            : Colors.grey[600],
                         ),
-                        color: favoriteCars.contains(car.id) 
-                          ? Colors.red[500] 
-                          : Colors.grey[600],
-                        onPressed: () => _toggleFavorite(car),
                       ),
+                      onPressed: () => _toggleFavorite(car),
+                      tooltip: favoriteCars.contains(car.id) 
+                        ? 'Hapus dari favorit' 
+                        : 'Tambah ke favorit',
                     ),
                   ),
                 ),
@@ -613,7 +920,7 @@ class _DashboardState extends State<Dashboard> with TickerProviderStateMixin {
                       Expanded(
                         flex: 2,
                         child: ElevatedButton.icon(
-                          onPressed: () => _navigateToBooking(car),
+                          onPressed: () => _navigateToBooking(car), // **PERBAIKAN: Method sudah diupdate**
                           icon: const Icon(Icons.event_available, size: 18),
                           label: const Text('Book Sekarang'),
                           style: ElevatedButton.styleFrom(

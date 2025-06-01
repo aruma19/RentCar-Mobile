@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:project_133_165/pages/WelcomePage.dart';
 import 'package:project_133_165/models/User.dart';
-import 'package:project_133_165/models/book.dart'; // Gunakan nama file huruf kecil
+import 'package:project_133_165/models/book.dart'; 
+import './services/UserService.dart';// Gunakan nama file huruf kecil
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Hive.initFlutter();
@@ -18,7 +19,7 @@ void main() async {
   await Hive.openBox('users');
   await Hive.openBox('favorites');
   await Hive.openBox<Book>('bookings');
-
+  await UserService.initCurrentUser();
   runApp(const MainApp());
 }
 
