@@ -255,20 +255,21 @@ class _FavoritesPageState extends State<FavoritesPage>
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         title: const Text(
           'Favorit Saya',
           style: TextStyle(
-            color: Colors.white,
+            color: Colors.black,
             fontWeight: FontWeight.w600,
           ),
         ),
-        backgroundColor: Colors.teal[800],
+        backgroundColor: Colors.white,
         elevation: 0,
-        centerTitle: true,
+        //centerTitle: true,
         actions: [
           if (favorites.isNotEmpty)
             IconButton(
-              icon: const Icon(Icons.refresh, color: Colors.white),
+              icon: const Icon(Icons.refresh, color: Colors.black),
               onPressed: _loadFavorites,
               tooltip: 'Refresh',
             ),

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'Dashboard.dart';
 
 class EditUserPage extends StatefulWidget {
   const EditUserPage({super.key});
@@ -9,7 +8,7 @@ class EditUserPage extends StatefulWidget {
   @override
   State<EditUserPage> createState() => _EditUserPageState();
 }
-
+ 
 class _EditUserPageState extends State<EditUserPage> {
   final _formKey = GlobalKey<FormState>();
   final _namaController = TextEditingController();
@@ -67,7 +66,7 @@ class _EditUserPageState extends State<EditUserPage> {
         
         // Delay sebentar sebelum kembali
         await Future.delayed(const Duration(seconds: 1));
-        Navigator.pop(context, true); // Return true to indicate success
+        //Navigator.pop(context, true); // Return true to indicate success
       }
     } catch (e) {
       _showSnackBar('Error saving data: $e', Colors.red);
@@ -135,10 +134,11 @@ class _EditUserPageState extends State<EditUserPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Edit Profil', style: TextStyle(color: Colors.white)),
-        backgroundColor: Colors.teal[800],
-        centerTitle: true,
-        iconTheme: const IconThemeData(color: Colors.white),
+        automaticallyImplyLeading: false,
+        title: const Text('Edit Profil', style: TextStyle(color: Colors.black)),
+        backgroundColor: Colors.white,
+        //centerTitle: true,
+        iconTheme: const IconThemeData(color: Colors.black),
         actions: [
           IconButton(
             onPressed: _clearUserData,

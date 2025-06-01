@@ -203,7 +203,7 @@ class _HelpPageState extends State<HelpPage> with TickerProviderStateMixin {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  'Tap pada setiap topik untuk melihat panduan detail',
+                  'Tap setiap topik untuk melihat panduan detail',
                   style: TextStyle(
                     color: Colors.white.withOpacity(0.9),
                     fontSize: 14,
