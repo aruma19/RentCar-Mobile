@@ -516,7 +516,8 @@ class _BookPageState extends State<BookPage> with TickerProviderStateMixin {
           ),
         ],
       ),
-      child: SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
         child: Column(
           children: [
             Padding(
@@ -575,7 +576,7 @@ class _BookPageState extends State<BookPage> with TickerProviderStateMixin {
               indicatorColor: Colors.white,
               indicatorWeight: 3,
               indicatorSize: TabBarIndicatorSize.tab,
-              isScrollable: true,
+              isScrollable: false,
               tabs: const [
                 Tab(
                   child: Column(
@@ -583,7 +584,7 @@ class _BookPageState extends State<BookPage> with TickerProviderStateMixin {
                     children: [
                       Icon(Icons.list_alt_rounded, size: 22),
                       SizedBox(height: 4),
-                      Text('Semua', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                      Text('Semua', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
                     ],
                   ),
                 ),
@@ -593,7 +594,7 @@ class _BookPageState extends State<BookPage> with TickerProviderStateMixin {
                     children: [
                       Icon(Icons.pending_actions_rounded, size: 22),
                       SizedBox(height: 4),
-                      Text('Pending', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                      Text('Pending', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
                     ],
                   ),
                 ),
@@ -603,7 +604,7 @@ class _BookPageState extends State<BookPage> with TickerProviderStateMixin {
                     children: [
                       Icon(Icons.hourglass_empty_rounded, size: 22),
                       SizedBox(height: 4),
-                      Text('Aktif', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                      Text('Aktif', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
                     ],
                   ),
                 ),
@@ -613,7 +614,7 @@ class _BookPageState extends State<BookPage> with TickerProviderStateMixin {
                     children: [
                       Icon(Icons.check_circle_rounded, size: 22),
                       SizedBox(height: 4),
-                      Text('Selesai', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                      Text('Selesai', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
                     ],
                   ),
                 ),
@@ -623,7 +624,7 @@ class _BookPageState extends State<BookPage> with TickerProviderStateMixin {
                     children: [
                       Icon(Icons.cancel_rounded, size: 22),
                       SizedBox(height: 4),
-                      Text('Batal', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                      Text('Batal', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
                     ],
                   ),
                 ),
