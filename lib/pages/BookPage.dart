@@ -152,28 +152,42 @@ class _BookPageState extends State<BookPage> with TickerProviderStateMixin {
     }
   }
 
-  /// **BARU: Method untuk proses pembayaran**
-  Future<void> _processPayment(Book booking) async {
-    final paymentResult = await _showPaymentDialog(booking);
-    if (paymentResult == null) return;
-
-    try {
-      await HiveService.updateBookingPayment(
-        booking.id, 
-        paymentResult['status'], 
-        paymentResult['amount']
-      );
-      await _loadBookings();
-      _showSuccessSnackBar('Pembayaran berhasil diproses');
-    } catch (e) {
-      _showErrorSnackBar('Gagal memproses pembayaran: $e');
-    }
-  }
-
-  /// **BARU: Dialog untuk pilihan pembayaran**
+/// **PERBAIKAN: Dialog untuk pilihan pembayaran yang benar**
   Future<Map<String, dynamic>?> _showPaymentDialog(Book booking) async {
-    String paymentType = booking.paymentStatus;
-    double amount = booking.paidAmount;
+    // **PERBAIKAN: Logic untuk menentukan opsi pembayaran yang tersedia**
+    List<Map<String, dynamic>> paymentOptions = [];
+    
+    if (booking.paidAmount == 0) {
+      // Belum ada pembayaran sama sekali - bisa DP atau lunas
+      paymentOptions.addAll([
+        {
+          'id': 'dp',
+          'title': 'DP 50%',
+          'subtitle': booking.formatCurrency(booking.totalPrice * 0.5),
+          'amount': booking.totalPrice * 0.5,
+        },
+        {
+          'id': 'paid',
+          'title': 'Bayar Lunas',
+          'subtitle': booking.formattedTotalPrice,
+          'amount': booking.totalPrice,
+        }
+      ]);
+    } else if (booking.remainingAmount > 0) {
+      // Sudah ada pembayaran DP - hanya bisa bayar sisa
+      paymentOptions.add({
+        'id': 'remaining',
+        'title': 'Bayar Sisa',
+        'subtitle': booking.formattedRemainingAmount,
+        'amount': booking.remainingAmount,
+      });
+    }
+
+    if (paymentOptions.isEmpty) {
+      return null;
+    }
+
+    String selectedPaymentId = paymentOptions.first['id'];
 
     return showDialog<Map<String, dynamic>>(
       context: context,
@@ -183,34 +197,54 @@ class _BookPageState extends State<BookPage> with TickerProviderStateMixin {
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Total: ${booking.formattedTotalPrice}'),
-              Text('Sudah Dibayar: ${booking.formattedPaidAmount}'),
-              Text('Sisa: ${booking.formattedRemainingAmount}'),
-              const SizedBox(height: 16),
-              if (booking.canProcessPayment()) ...[
-                RadioListTile<String>(
-                  title: const Text('DP 50%'),
-                  subtitle: Text(booking.formatCurrencyPage(booking.totalPrice * 0.5)),
-                  value: 'dp',
-                  groupValue: paymentType,
-                  onChanged: (value) {
-                    setDialogState(() {
-                      paymentType = value!;
-                      amount = booking.totalPrice * 0.5;
-                    });
-                  },
+              // **Payment Summary**
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.grey[50],
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                RadioListTile<String>(
-                  title: const Text('Bayar Lunas'),
-                  subtitle: Text(booking.formattedTotalPrice),
-                  value: 'paid',
-                  groupValue: paymentType,
-                  onChanged: (value) {
-                    setDialogState(() {
-                      paymentType = value!;
-                      amount = booking.totalPrice;
-                    });
-                  },
+                child: Column(
+                  children: [
+                    _buildPaymentSummaryRow('Total', booking.formattedTotalPrice),
+                    _buildPaymentSummaryRow('Sudah Dibayar', booking.formattedPaidAmount),
+                    const Divider(),
+                    _buildPaymentSummaryRow('Sisa', booking.formattedRemainingAmount),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              
+              // **Payment Options**
+              if (booking.canProcessPayment()) ...[
+                Container(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey[300]!),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    children: paymentOptions.asMap().entries.map((entry) {
+                      int index = entry.key;
+                      Map<String, dynamic> option = entry.value;
+                      
+                      return Column(
+                        children: [
+                          if (index > 0) const Divider(height: 1),
+                          RadioListTile<String>(
+                            title: Text(option['title']),
+                            subtitle: Text(option['subtitle']),
+                            value: option['id'],
+                            groupValue: selectedPaymentId,
+                            onChanged: (value) {
+                              setDialogState(() {
+                                selectedPaymentId = value!;
+                              });
+                            },
+                          ),
+                        ],
+                      );
+                    }).toList(),
+                  ),
                 ),
               ] else ...[
                 Text('Pembayaran tidak dapat diproses untuk booking dengan status ${booking.getStatusText()}'),
@@ -224,10 +258,16 @@ class _BookPageState extends State<BookPage> with TickerProviderStateMixin {
             ),
             if (booking.canProcessPayment())
               ElevatedButton(
-                onPressed: () => Navigator.pop(context, {
-                  'status': paymentType,
-                  'amount': amount,
-                }),
+                onPressed: () {
+                  final selectedOption = paymentOptions.firstWhere(
+                    (option) => option['id'] == selectedPaymentId,
+                  );
+                  Navigator.pop(context, {
+                    'type': selectedPaymentId,
+                    'amount': selectedOption['amount'],
+                    'title': selectedOption['title'],
+                  });
+                },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.teal[800],
                   foregroundColor: Colors.white,
@@ -240,7 +280,60 @@ class _BookPageState extends State<BookPage> with TickerProviderStateMixin {
     );
   }
 
+  /// **Helper method untuk payment summary row**
+  Widget _buildPaymentSummaryRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: TextStyle(fontSize: 14, color: Colors.grey[700])),
+          Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+        ],
+      ),
+    );
+  }
+
+  /// **PERBAIKAN: Method untuk proses pembayaran yang benar**
+  Future<void> _processPayment(Book booking) async {
+    final paymentResult = await _showPaymentDialog(booking);
+    if (paymentResult == null) return;
+
+    try {
+      String paymentType = paymentResult['type'];
+      double amount = paymentResult['amount'];
+      String title = paymentResult['title'];
+      
+      if (paymentType == 'remaining') {
+        // **Gunakan method khusus untuk pembayaran sisa**
+        await HiveService.payBookingRemainingAmount(booking.id);
+      } else {
+        // **Untuk DP atau pembayaran lunas baru**
+        String paymentStatus = paymentType == 'dp' ? 'dp' : 'paid';
+        await HiveService.updateBookingPayment(
+          booking.id, 
+          paymentStatus, 
+          amount
+        );
+      }
+      
+      await _loadBookings();
+      _showSuccessSnackBar('$title berhasil diproses');
+    } catch (e) {
+      _showErrorSnackBar('Gagal memproses pembayaran: $e');
+    }
+  }
+
+  /// **PERBAIKAN: Delete booking dengan validasi baru**
   Future<void> _deleteBooking(Book booking) async {
+    // **PERBAIKAN: Cek apakah booking bisa dihapus**
+    if (!booking.canBeDeleted()) {
+      _showErrorSnackBar(
+        'Booking tidak dapat dihapus. Harus diselesaikan atau dibatalkan terlebih dahulu.'
+      );
+      return;
+    }
+
     final confirmed = await _showDeleteConfirmation(booking);
     if (confirmed == true) {
       try {
@@ -253,6 +346,7 @@ class _BookPageState extends State<BookPage> with TickerProviderStateMixin {
     }
   }
 
+  /// **PERBAIKAN: Dialog konfirmasi delete dengan info refund**
   Future<bool?> _showDeleteConfirmation(Book booking) {
     return showDialog<bool>(
       context: context,
@@ -284,6 +378,36 @@ class _BookPageState extends State<BookPage> with TickerProviderStateMixin {
                   Text('Mobil: ${booking.carName}'),
                   Text('Status: ${booking.getStatusText()}'),
                   Text('Pembayaran: ${booking.getPaymentStatusText()}'),
+                  if (booking.isRefunded && booking.refundAmount > 0) ...[
+                    const Divider(),
+                    Text('Refund: ${booking.formattedRefundAmount}', 
+                         style: TextStyle(color: Colors.green[700], fontWeight: FontWeight.bold)),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            // **BARU: Info tentang penghapusan**
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.red[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red[200]!),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.red[700], size: 16),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Data booking akan dihapus permanen dan tidak dapat dikembalikan',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.red[700],
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -741,114 +865,114 @@ class _BookPageState extends State<BookPage> with TickerProviderStateMixin {
                         ],
                       ),
                     ),
-                    if (availableActions.isNotEmpty)
-                      PopupMenuButton<String>(
-                        icon: Icon(Icons.more_vert, color: Colors.grey[600]),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        onSelected: (value) {
-                          switch (value) {
-                            case 'detail':
-                              _navigateToDetail(booking);
-                              break;
-                            case 'confirm':
-                              _updateBookingStatus(booking, 'confirmed');
-                              break;
-                            case 'activate':
-                              _updateBookingStatus(booking, 'active');
-                              break;
-                            case 'complete':
-                              _updateBookingStatus(booking, 'completed');
-                              break;
-                            case 'cancel':
-                              _updateBookingStatus(booking, 'cancelled');
-                              break;
-                            case 'payment':
-                              _processPayment(booking);
-                              break;
-                            case 'delete':
-                              _deleteBooking(booking);
-                              break;
-                          }
-                        },
-                        itemBuilder: (context) => [
+                    PopupMenuButton<String>(
+                      icon: Icon(Icons.more_vert, color: Colors.grey[600]),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      onSelected: (value) {
+                        switch (value) {
+                          case 'detail':
+                            _navigateToDetail(booking);
+                            break;
+                          case 'confirm':
+                            _updateBookingStatus(booking, 'confirmed');
+                            break;
+                          case 'activate':
+                            _updateBookingStatus(booking, 'active');
+                            break;
+                          case 'complete':
+                            _updateBookingStatus(booking, 'completed');
+                            break;
+                          case 'cancel':
+                            _updateBookingStatus(booking, 'cancelled');
+                            break;
+                          case 'payment':
+                            _processPayment(booking);
+                            break;
+                          case 'delete':
+                            _deleteBooking(booking);
+                            break;
+                        }
+                      },
+                      itemBuilder: (context) => [
+                        const PopupMenuItem(
+                          value: 'detail',
+                          child: Row(
+                            children: [
+                              Icon(Icons.info_outline, size: 18),
+                              SizedBox(width: 8),
+                              Text('Lihat Detail'),
+                            ],
+                          ),
+                        ),
+                        if (availableActions.contains('confirm'))
                           const PopupMenuItem(
-                            value: 'detail',
+                            value: 'confirm',
                             child: Row(
                               children: [
-                                Icon(Icons.info_outline, size: 18),
+                                Icon(Icons.check_circle, size: 18, color: Colors.blue),
                                 SizedBox(width: 8),
-                                Text('Lihat Detail'),
+                                Text('Konfirmasi'),
                               ],
                             ),
                           ),
-                          if (availableActions.contains('confirm'))
-                            const PopupMenuItem(
-                              value: 'confirm',
-                              child: Row(
-                                children: [
-                                  Icon(Icons.check_circle, size: 18, color: Colors.blue),
-                                  SizedBox(width: 8),
-                                  Text('Konfirmasi'),
-                                ],
-                              ),
+                        if (availableActions.contains('activate'))
+                          const PopupMenuItem(
+                            value: 'activate',
+                            child: Row(
+                              children: [
+                                Icon(Icons.play_arrow, size: 18, color: Colors.green),
+                                SizedBox(width: 8),
+                                Text('Mulai Rental'),
+                              ],
                             ),
-                          if (availableActions.contains('activate'))
-                            const PopupMenuItem(
-                              value: 'activate',
-                              child: Row(
-                                children: [
-                                  Icon(Icons.play_arrow, size: 18, color: Colors.green),
-                                  SizedBox(width: 8),
-                                  Text('Mulai Rental'),
-                                ],
-                              ),
+                          ),
+                        if (availableActions.contains('complete'))
+                          const PopupMenuItem(
+                            value: 'complete',
+                            child: Row(
+                              children: [
+                                Icon(Icons.done_all, size: 18, color: Colors.teal),
+                                SizedBox(width: 8),
+                                Text('Selesaikan'),
+                              ],
                             ),
-                          if (availableActions.contains('complete'))
-                            const PopupMenuItem(
-                              value: 'complete',
-                              child: Row(
-                                children: [
-                                  Icon(Icons.done_all, size: 18, color: Colors.teal),
-                                  SizedBox(width: 8),
-                                  Text('Selesaikan'),
-                                ],
-                              ),
+                          ),
+                        if (availableActions.contains('cancel'))
+                          const PopupMenuItem(
+                            value: 'cancel',
+                            child: Row(
+                              children: [
+                                Icon(Icons.close, size: 18, color: Colors.orange),
+                                SizedBox(width: 8),
+                                Text('Batalkan'),
+                              ],
                             ),
-                          if (availableActions.contains('cancel'))
-                            const PopupMenuItem(
-                              value: 'cancel',
-                              child: Row(
-                                children: [
-                                  Icon(Icons.close, size: 18, color: Colors.orange),
-                                  SizedBox(width: 8),
-                                  Text('Batalkan'),
-                                ],
-                              ),
+                          ),
+                        if (availableActions.contains('payment'))
+                          const PopupMenuItem(
+                            value: 'payment',
+                            child: Row(
+                              children: [
+                                Icon(Icons.payment, size: 18, color: Colors.purple),
+                                SizedBox(width: 8),
+                                Text('Bayar'),
+                              ],
                             ),
-                          if (availableActions.contains('payment'))
-                            const PopupMenuItem(
-                              value: 'payment',
-                              child: Row(
-                                children: [
-                                  Icon(Icons.payment, size: 18, color: Colors.purple),
-                                  SizedBox(width: 8),
-                                  Text('Bayar'),
-                                ],
-                              ),
+                          ),
+                        // **PERBAIKAN: Delete hanya muncul jika booking bisa dihapus**
+                        if (booking.canBeDeleted())
+                          const PopupMenuItem(
+                            value: 'delete',
+                            child: Row(
+                              children: [
+                                Icon(Icons.delete, size: 18, color: Colors.red),
+                                SizedBox(width: 8),
+                                Text('Hapus'),
+                              ],
                             ),
-                          if (booking.canBeCancelled() || booking.isCancelled)
-                            const PopupMenuItem(
-                              value: 'delete',
-                              child: Row(
-                                children: [
-                                  Icon(Icons.delete, size: 18, color: Colors.red),
-                                  SizedBox(width: 8),
-                                  Text('Hapus'),
-                                ],
-                              ),
-                            ),
-                        ],
-                      ),
+                          ),
+                      ],
+                    ),
                   ],
                 ),
                 
@@ -935,6 +1059,18 @@ class _BookPageState extends State<BookPage> with TickerProviderStateMixin {
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                             color: Colors.red[600],
+                          ),
+                        ),
+                      ],
+                      // **BARU: Tampilkan info refund jika ada**
+                      if (booking.isRefunded && booking.refundAmount > 0) ...[
+                        const Spacer(),
+                        Text(
+                          'Refund: ${booking.formattedRefundAmount}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.green[600],
                           ),
                         ),
                       ],

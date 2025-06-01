@@ -214,7 +214,7 @@ class HiveService {
   // BOOKING OPERATIONS - DENGAN BUSINESS LOGIC VALIDATION
   // ============================================================================
 
-  /// Menyimpan booking baru dengan validasi
+  /// **PERBAIKAN: Menyimpan booking baru dengan auto-confirm logic**
   static Future<String> saveBooking(Book booking) async {
     try {
       final box = await getBookingBox();
@@ -228,9 +228,12 @@ class HiveService {
         throw Exception('Jumlah pembayaran kurang dari total harga');
       }
       
-      await box.put(booking.id, booking);
-      print('✅ Booking saved: ${booking.id} for user: ${booking.userId}');
-      return booking.id;
+      // **BARU: Auto-confirm jika sudah bayar**
+      final finalBooking = booking.autoConfirmIfPaid();
+      
+      await box.put(finalBooking.id, finalBooking);
+      print('✅ Booking saved: ${finalBooking.id} for user: ${finalBooking.userId} - Status: ${finalBooking.status}');
+      return finalBooking.id;
     } catch (e) {
       print('❌ Error saving booking: $e');
       rethrow;
@@ -248,7 +251,7 @@ class HiveService {
     }
   }
 
-  /// Update status booking dengan validasi
+  /// **PERBAIKAN: Update status booking dengan auto-confirm logic**
   static Future<Book> updateBookingStatus(String bookingId, String newStatus) async {
     try {
       final box = await getBookingBox();
@@ -269,7 +272,7 @@ class HiveService {
     }
   }
 
-  /// Update payment status dengan validasi
+  /// **PERBAIKAN: Update payment dengan auto-confirm dan improved logic**
   static Future<Book> updateBookingPayment(String bookingId, String newPaymentStatus, double amount) async {
     try {
       final box = await getBookingBox();
@@ -279,13 +282,79 @@ class HiveService {
         throw Exception('Booking tidak ditemukan');
       }
       
-      final updatedBooking = booking.updatePayment(newPaymentStatus, amount);
-      await box.put(bookingId, updatedBooking);
+      Book updatedBooking;
       
-      print('✅ Booking payment updated: $bookingId -> $newPaymentStatus (${amount})');
-      return updatedBooking;
+      // **PERBAIKAN: Simplified logic**
+      if (newPaymentStatus == 'paid' && booking.paidAmount > 0) {
+        // Jika sudah ada pembayaran sebelumnya (DP), gunakan method payRemainingAmount
+        updatedBooking = booking.payRemainingAmount();
+        print('✅ Remaining payment completed for booking: $bookingId');
+      } else {
+        // Untuk pembayaran baru (DP atau lunas langsung)
+        updatedBooking = booking.updatePayment(newPaymentStatus, amount);
+        print('✅ New payment processed for booking: $bookingId -> $newPaymentStatus (${amount})');
+      }
+      
+      // **BARU: Auto-confirm setelah pembayaran**
+      final finalBooking = updatedBooking.autoConfirmIfPaid();
+      
+      await box.put(bookingId, finalBooking);
+      
+      print('✅ Final booking status: ${finalBooking.status} - Payment: ${finalBooking.paymentStatus}');
+      return finalBooking;
     } catch (e) {
       print('❌ Error updating booking payment: $e');
+      rethrow;
+    }
+  }
+
+  /// **PERBAIKAN: Method khusus untuk pembayaran sisa dengan auto-confirm**
+  static Future<Book> payBookingRemainingAmount(String bookingId) async {
+    try {
+      final box = await getBookingBox();
+      final booking = box.get(bookingId);
+      
+      if (booking == null) {
+        throw Exception('Booking tidak ditemukan');
+      }
+      
+      if (booking.remainingAmount <= 0) {
+        throw Exception('Tidak ada sisa pembayaran yang perlu dibayar');
+      }
+      
+      final updatedBooking = booking.payRemainingAmount();
+      
+      // **BARU: Auto-confirm setelah pembayaran**
+      final finalBooking = updatedBooking.autoConfirmIfPaid();
+      
+      await box.put(bookingId, finalBooking);
+      
+      print('✅ Remaining amount paid for booking: $bookingId - Status: ${finalBooking.status}');
+      return finalBooking;
+    } catch (e) {
+      print('❌ Error paying remaining amount: $e');
+      rethrow;
+    }
+  }
+
+  /// **PERBAIKAN: Hapus booking hanya jika sudah selesai atau dibatalkan**
+  static Future<void> deleteBooking(String bookingId) async {
+    try {
+      final box = await getBookingBox();
+      final booking = box.get(bookingId);
+      
+      if (booking == null) {
+        throw Exception('Booking tidak ditemukan');
+      }
+      
+      if (!booking.canBeDeleted()) {
+        throw Exception('Booking tidak dapat dihapus. Harus dibatalkan atau diselesaikan terlebih dahulu. Status saat ini: ${booking.getStatusText()}');
+      }
+      
+      await box.delete(bookingId);
+      print('✅ Booking deleted: $bookingId');
+    } catch (e) {
+      print('❌ Error deleting booking: $e');
       rethrow;
     }
   }
@@ -298,24 +367,6 @@ class HiveService {
     } catch (e) {
       print('❌ Error getting booking: $e');
       return null;
-    }
-  }
-
-  /// Hapus booking (hanya untuk admin atau booking yang bisa dibatalkan)
-  static Future<void> deleteBooking(String bookingId) async {
-    try {
-      final box = await getBookingBox();
-      final booking = box.get(bookingId);
-      
-      if (booking != null && !booking.canBeCancelled() && !booking.isCancelled) {
-        throw Exception('Booking tidak dapat dihapus. Status: ${booking.getStatusText()}');
-      }
-      
-      await box.delete(bookingId);
-      print('✅ Booking deleted: $bookingId');
-    } catch (e) {
-      print('❌ Error deleting booking: $e');
-      rethrow;
     }
   }
 
@@ -436,15 +487,17 @@ class HiveService {
     }
   }
 
-  /// Statistik pembayaran untuk user tertentu
+  /// **BARU: Statistik pembayaran dan refund untuk user tertentu**
   static Future<Map<String, dynamic>> getPaymentStatsByUser(String userId) async {
     try {
       final userBookings = await getBookingsByUser(userId);
       
       double totalSpent = 0;
       double totalPending = 0;
+      double totalRefund = 0;
       int paidBookings = 0;
       int unpaidBookings = 0;
+      int refundedBookings = 0;
       
       for (Book booking in userBookings) {
         if (booking.isCompleted && booking.isPaid) {
@@ -454,21 +507,30 @@ class HiveService {
           totalPending += booking.remainingAmount;
           unpaidBookings++;
         }
+        
+        if (booking.isCancelled && booking.isRefunded) {
+          totalRefund += booking.refundAmount;
+          refundedBookings++;
+        }
       }
       
       return {
         'total_spent': totalSpent,
         'total_pending': totalPending,
+        'total_refund': totalRefund,
         'paid_bookings': paidBookings,
         'unpaid_bookings': unpaidBookings,
+        'refunded_bookings': refundedBookings,
       };
     } catch (e) {
       print('❌ Error getting payment stats: $e');
       return {
         'total_spent': 0.0,
         'total_pending': 0.0,
+        'total_refund': 0.0,
         'paid_bookings': 0,
         'unpaid_bookings': 0,
+        'refunded_bookings': 0,
       };
     }
   }
@@ -597,6 +659,10 @@ class HiveService {
       for (var booking in userBookings) {
         print('  ${booking.id}: ${booking.carName} - ${booking.getStatusText()} - ${booking.getPaymentStatusText()}');
         print('    Actions: ${booking.getAvailableActions()}');
+        print('    Can be deleted: ${booking.canBeDeleted()}');
+        if (booking.isRefunded) {
+          print('    Refund amount: ${booking.formattedRefundAmount}');
+        }
       }
       
       final stats = await getBookingStatsByUser(userId);
