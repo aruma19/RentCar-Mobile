@@ -22,45 +22,48 @@ class Book extends HiveObject {
   String userName;
 
   @HiveField(5)
-  String userId;
+  String nohp;
 
   @HiveField(6)
-  int rentalDays;
+  String userId;
 
   @HiveField(7)
-  bool needDriver;
+  int rentalDays;
 
   @HiveField(8)
-  double basePrice;
+  bool needDriver;
 
   @HiveField(9)
-  double driverPrice;
+  double basePrice;
 
   @HiveField(10)
-  double totalPrice;
+  double driverPrice;
 
   @HiveField(11)
-  DateTime startDate;
+  double totalPrice;
 
   @HiveField(12)
-  DateTime endDate;
+  DateTime startDate;
 
   @HiveField(13)
-  DateTime bookingDate;
+  DateTime endDate;
 
   @HiveField(14)
-  DateTime? createdAt;
+  DateTime bookingDate;
 
   @HiveField(15)
-  String status; // 'pending', 'confirmed', 'active', 'completed', 'cancelled'
+  DateTime? createdAt;
 
   @HiveField(16)
-  String paymentStatus; // 'unpaid', 'dp', 'paid', 'refunded'
+  String status; // 'pending', 'confirmed', 'active', 'completed', 'cancelled'
 
   @HiveField(17)
-  double paidAmount;
+  String paymentStatus; // 'unpaid', 'dp', 'paid', 'refunded'
 
   @HiveField(18)
+  double paidAmount;
+
+  @HiveField(19)
   DateTime? paymentDate;
 
   Book({
@@ -69,6 +72,7 @@ class Book extends HiveObject {
     required this.carName,
     required this.carMerk,
     required this.userName,
+    required this.nohp,
     required this.userId,
     required this.rentalDays,
     required this.needDriver,
@@ -414,6 +418,7 @@ class Book extends HiveObject {
     String? carName,
     String? carMerk,
     String? userName,
+    String? nohp,
     String? userId,
     int? rentalDays,
     bool? needDriver,
@@ -435,6 +440,7 @@ class Book extends HiveObject {
       carName: carName ?? this.carName,
       carMerk: carMerk ?? this.carMerk,
       userName: userName ?? this.userName,
+      nohp: nohp ?? this.nohp,
       userId: userId ?? this.userId,
       rentalDays: rentalDays ?? this.rentalDays,
       needDriver: needDriver ?? this.needDriver,
@@ -460,6 +466,7 @@ class Book extends HiveObject {
       'carName': carName,
       'carMerk': carMerk,
       'userName': userName,
+      'nohp': nohp,
       'userId': userId,
       'rentalDays': rentalDays,
       'needDriver': needDriver,
@@ -485,6 +492,7 @@ class Book extends HiveObject {
       carName: map['carName'] ?? '',
       carMerk: map['carMerk'] ?? '',
       userName: map['userName'] ?? '',
+      nohp: map['nohp'] ?? '',
       userId: map['userId'] ?? '',
       rentalDays: map['rentalDays'] ?? 0,
       needDriver: map['needDriver'] ?? false,

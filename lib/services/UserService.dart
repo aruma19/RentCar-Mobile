@@ -8,7 +8,7 @@ class UserService {
   static const String _loggedInUserKey = 'logged_in_user';
    
   // Cache untuk current user (untuk akses synchronous)
-  static String? _currentUsername;
+  static String? _currentUsername;  
   static User? _currentUser;
 
   // **PERBAIKAN: Helper method untuk check essential boxes**

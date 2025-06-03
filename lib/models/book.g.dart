@@ -22,27 +22,28 @@ class BookAdapter extends TypeAdapter<Book> {
       carName: fields[2] as String,
       carMerk: fields[3] as String,
       userName: fields[4] as String,
-      userId: fields[5] as String,
-      rentalDays: fields[6] as int,
-      needDriver: fields[7] as bool,
-      basePrice: fields[8] as double,
-      driverPrice: fields[9] as double,
-      totalPrice: fields[10] as double,
-      startDate: fields[11] as DateTime,
-      endDate: fields[12] as DateTime,
-      bookingDate: fields[13] as DateTime,
-      createdAt: fields[14] as DateTime?,
-      status: fields[15] as String? ?? 'pending', // Default value for backward compatibility
-      paymentStatus: fields[16] as String? ?? 'unpaid', // Default value for backward compatibility
-      paidAmount: fields[17] as double? ?? 0.0, // Default value for backward compatibility
-      paymentDate: fields[18] as DateTime?,
+      nohp: fields[5] as String,
+      userId: fields[6] as String,
+      rentalDays: fields[7] as int,
+      needDriver: fields[8] as bool,
+      basePrice: fields[9] as double,
+      driverPrice: fields[10] as double,
+      totalPrice: fields[11] as double,
+      startDate: fields[12] as DateTime,
+      endDate: fields[13] as DateTime,
+      bookingDate: fields[14] as DateTime,
+      createdAt: fields[15] as DateTime?,
+      status: fields[16] as String? ?? 'pending', // Default value for backward compatibility
+      paymentStatus: fields[17] as String? ?? 'unpaid', // Default value for backward compatibility
+      paidAmount: fields[18] as double? ?? 0.0, // Default value for backward compatibility
+      paymentDate: fields[19] as DateTime?,
     );
   }
 
   @override
   void write(BinaryWriter writer, Book obj) {
     writer
-      ..writeByte(19)  // Total 19 fields (0-18)
+      ..writeByte(20)  // Total 19 fields (0-18)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -54,32 +55,34 @@ class BookAdapter extends TypeAdapter<Book> {
       ..writeByte(4)
       ..write(obj.userName)
       ..writeByte(5)
-      ..write(obj.userId)
+      ..write(obj.nohp)
       ..writeByte(6)
-      ..write(obj.rentalDays)
+      ..write(obj.userId)
       ..writeByte(7)
-      ..write(obj.needDriver)
+      ..write(obj.rentalDays)
       ..writeByte(8)
-      ..write(obj.basePrice)
+      ..write(obj.needDriver)
       ..writeByte(9)
-      ..write(obj.driverPrice)
+      ..write(obj.basePrice)
       ..writeByte(10)
-      ..write(obj.totalPrice)
+      ..write(obj.driverPrice)
       ..writeByte(11)
-      ..write(obj.startDate)
+      ..write(obj.totalPrice)
       ..writeByte(12)
-      ..write(obj.endDate)
+      ..write(obj.startDate)
       ..writeByte(13)
-      ..write(obj.bookingDate)
+      ..write(obj.endDate)
       ..writeByte(14)
-      ..write(obj.createdAt)
+      ..write(obj.bookingDate)
       ..writeByte(15)
-      ..write(obj.status)
+      ..write(obj.createdAt)
       ..writeByte(16)
-      ..write(obj.paymentStatus)
+      ..write(obj.status)
       ..writeByte(17)
-      ..write(obj.paidAmount)
+      ..write(obj.paymentStatus)
       ..writeByte(18)
+      ..write(obj.paidAmount)
+      ..writeByte(19)
       ..write(obj.paymentDate);
   }
 

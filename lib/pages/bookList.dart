@@ -30,6 +30,7 @@ class _BookListPageState extends State<BookListPage> {
   // Form controllers
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
+  final _nohpController = TextEditingController();
   final _userIdController = TextEditingController();
 
   // Form data
@@ -227,6 +228,7 @@ class _BookListPageState extends State<BookListPage> {
         carName: car!.nama,
         carMerk: car!.merk,
         userName: _nameController.text.trim(),
+        nohp: _nohpController.text.trim(),
         userId: widget.currentUserId, // **PERBAIKAN: Gunakan currentUserId**
         rentalDays: rentalDays,
         needDriver: needDriver,
@@ -276,6 +278,7 @@ class _BookListPageState extends State<BookListPage> {
                 const SizedBox(height: 8),
                 Text('Mobil: ${car!.nama}'),
                 Text('Pemesan: ${_nameController.text}'),
+                Text('No HP: ${_nohpController.text}'),
                 Text('User ID: ${savedBooking.userId}'),
                 Text(
                     'Tanggal Rental: ${_formatDate(startDate)} - ${_formatDate(endDate)}'),
@@ -387,7 +390,7 @@ class _BookListPageState extends State<BookListPage> {
                 child: Icon(Icons.payment, color: Colors.orange[700], size: 24),
               ),
               const SizedBox(width: 12),
-              const Text('Pilih Metode Pembayaran'),
+              const Text('Metode Pembayaran'),
             ],
           ),
           content: Column(
@@ -977,6 +980,23 @@ class _BookListPageState extends State<BookListPage> {
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
                   return 'Nama pemesan wajib diisi';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _nohpController,
+              decoration: InputDecoration(
+                labelText: 'No HP',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                prefixIcon: const Icon(Icons.phone),
+              ),
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Nomor HP wajib diisi';
                 }
                 return null;
               },

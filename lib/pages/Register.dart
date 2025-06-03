@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
+import 'Login.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -44,7 +45,8 @@ class _RegisterPageState extends State<RegisterPage> {
 
     if (password != confirmPassword) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Password dan konfirmasi password tidak sama.")),
+        const SnackBar(
+            content: Text("Password dan konfirmasi password tidak sama.")),
       );
       return;
     }
@@ -64,7 +66,10 @@ class _RegisterPageState extends State<RegisterPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text("Registrasi berhasil! Silakan login.")),
     );
-    Navigator.pop(context); // kembali ke halaman login
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => const LoginPage()),
+    ); // kembali ke halaman login
   }
 
   @override
@@ -92,7 +97,8 @@ class _RegisterPageState extends State<RegisterPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                const Icon(Icons.app_registration, size: 80, color: Colors.white),
+                const Icon(Icons.app_registration,
+                    size: 80, color: Colors.white),
                 const SizedBox(height: 20),
                 const Text(
                   "Buat Akun Baru",
@@ -137,7 +143,9 @@ class _RegisterPageState extends State<RegisterPage> {
                     ),
                     suffixIcon: IconButton(
                       icon: Icon(
-                        passwordVisible ? Icons.visibility : Icons.visibility_off,
+                        passwordVisible
+                            ? Icons.visibility
+                            : Icons.visibility_off,
                         color: Colors.white70,
                       ),
                       onPressed: () {
@@ -166,7 +174,9 @@ class _RegisterPageState extends State<RegisterPage> {
                     ),
                     suffixIcon: IconButton(
                       icon: Icon(
-                        confirmPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                        confirmPasswordVisible
+                            ? Icons.visibility
+                            : Icons.visibility_off,
                         color: Colors.white70,
                       ),
                       onPressed: () {

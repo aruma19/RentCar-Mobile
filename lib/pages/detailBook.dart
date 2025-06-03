@@ -56,7 +56,7 @@ class _DetailBookPageState extends State<DetailBookPage> with TickerProviderStat
   Future<void> _initCurrentUser() async {
     try {
       await UserService.initCurrentUser();
-      currentUserId = UserService.getCurrentUsername();
+    currentUserId = UserService.getCurrentUsername();
       await _loadBookingDetail();
     } catch (e) {
       setState(() {
@@ -141,7 +141,7 @@ class _DetailBookPageState extends State<DetailBookPage> with TickerProviderStat
     }
 
     // **PERBAIKAN: Logic untuk menentukan opsi pembayaran yang tersedia**
-    List<Map<String, dynamic>> paymentOptions = [];
+    List<Map<String, dynamic>> paymentOptions = []; 
     
     if (booking!.paidAmount == 0) {
       // Belum ada pembayaran sama sekali - bisa DP atau lunas
@@ -814,7 +814,7 @@ class _DetailBookPageState extends State<DetailBookPage> with TickerProviderStat
                 Text(
                   'Informasi Booking',
                   style: TextStyle(
-                    fontSize: 20,
+                    fontSize: 16,
                     fontWeight: FontWeight.bold,
                     color: Colors.grey[800],
                   ),
@@ -870,7 +870,7 @@ class _DetailBookPageState extends State<DetailBookPage> with TickerProviderStat
                 Text(
                   'Informasi Mobil',
                   style: TextStyle(
-                    fontSize: 20,
+                    fontSize: 16,
                     fontWeight: FontWeight.bold,
                     color: Colors.grey[800],
                   ),
@@ -923,7 +923,7 @@ class _DetailBookPageState extends State<DetailBookPage> with TickerProviderStat
                 Text(
                   'Informasi Pemesan',
                   style: TextStyle(
-                    fontSize: 20,
+                    fontSize: 16,
                     fontWeight: FontWeight.bold,
                     color: Colors.grey[800],
                   ),
@@ -932,6 +932,7 @@ class _DetailBookPageState extends State<DetailBookPage> with TickerProviderStat
             ),
             const SizedBox(height: 20),
             _buildDetailItem('Nama Pemesan', booking!.userName, Icons.person_outline_rounded),
+            _buildDetailItem('No HP', booking!.nohp, Icons.phone),
             _buildDetailItem('ID User', booking!.userId, Icons.badge_rounded),
           ],
         ),
@@ -978,7 +979,7 @@ class _DetailBookPageState extends State<DetailBookPage> with TickerProviderStat
                     Text(
                       'Informasi Pembayaran',
                       style: TextStyle(
-                        fontSize: 20,
+                        fontSize: 16,
                         fontWeight: FontWeight.bold,
                         color: Colors.grey[800],
                       ),
@@ -1249,7 +1250,7 @@ class _DetailBookPageState extends State<DetailBookPage> with TickerProviderStat
                 Text(
                   'Aksi',
                   style: TextStyle(
-                    fontSize: 20,
+                    fontSize: 16,
                     fontWeight: FontWeight.bold,
                     color: Colors.grey[800],
                   ),
