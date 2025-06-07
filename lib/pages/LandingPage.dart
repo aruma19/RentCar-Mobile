@@ -19,7 +19,7 @@ class _LandingPageState extends State<LandingPage> {
 
   Future<List<Car>> _fetchCars() async {
     final response = await http.get(Uri.parse(
-        'https://6839447d6561b8d882af9534.mockapi.io/api/sewa_mobil/mobil'));
+        'https://6839447d6561b8d882af9534.mockapi.io/api/project_tpm/mobil'));
     if (response.statusCode == 200) {
       final List<dynamic> list = json.decode(response.body);
       return list.map((e) => Car.fromJson(e)).toList();
@@ -39,7 +39,7 @@ class _LandingPageState extends State<LandingPage> {
 
     try {
       final response = await http.get(Uri.parse(
-          'https://6839447d6561b8d882af9534.mockapi.io/api/sewa_mobil/mobil'));
+          'https://6839447d6561b8d882af9534.mockapi.io/api/project_tpm/mobil'));
       
       if (response.statusCode == 200) {
         final List<dynamic> list = json.decode(response.body);

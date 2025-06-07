@@ -27,7 +27,7 @@ class _DetailLandingPageState extends State<DetailLandingPage> {
   Future<void> _fetchCarDetail() async {
     try {
       final response = await http.get(Uri.parse(
-          'https://6839447d6561b8d882af9534.mockapi.io/api/sewa_mobil/mobil/${widget.carId}'));
+          'https://6839447d6561b8d882af9534.mockapi.io/api/project_tpm/mobil/${widget.carId}'));
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> json = jsonDecode(response.body);
