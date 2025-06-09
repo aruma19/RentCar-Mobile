@@ -807,7 +807,7 @@ class _BookPageState extends State<BookPage> with TickerProviderStateMixin {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [
+        boxShadow: [  
           BoxShadow(
             color: Colors.black.withOpacity(0.08),
             blurRadius: 15,

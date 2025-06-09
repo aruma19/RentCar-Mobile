@@ -1,4 +1,4 @@
-// service/FavoriteService.dart
+// service/FavoriteService.dart (RentCar)
 import '../services/HiveService.dart';
 import '../services/UserService.dart';
 import '../models/Car.dart';
